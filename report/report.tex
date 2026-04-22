@@ -1,0 +1,489 @@
+\documentclass[11pt,a4paper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}   % Arial-like sans-serif font
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{hyperref}
+\usepackage{listingsutf8}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage[title]{appendix}
+
+% ── Colors ────────────────────────────────────────────────────────────────────
+\definecolor{codebg}{HTML}{F5F5F5}
+\definecolor{codeframe}{HTML}{CCCCCC}
+\definecolor{keyword}{HTML}{0000CC}
+\definecolor{comment}{HTML}{007700}
+\definecolor{string}{HTML}{CC0000}
+\definecolor{uu-red}{HTML}{990000}
+
+% ── Listings style ────────────────────────────────────────────────────────────
+\lstdefinestyle{docker}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  breakatwhitespace=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  commentstyle=\color{comment},
+  keywordstyle=\color{keyword}\bfseries,
+  stringstyle=\color{string},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  tabsize=2,
+}
+
+\lstdefinestyle{yaml}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  morecomment=[l]{\#},
+  commentstyle=\color{comment},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  tabsize=2,
+}
+
+\lstdefinestyle{shell}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+}
+
+\lstdefinestyle{python}{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  breakatwhitespace=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  commentstyle=\color{comment},
+  keywordstyle=\color{keyword}\bfseries,
+  stringstyle=\color{string},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  tabsize=4,
+}
+
+% ── Section title formatting ──────────────────────────────────────────────────
+\lstset{inputencoding=utf8, extendedchars=true}
+\titleformat{\section}{\large\bfseries\color{black}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+
+% ── Header / Footer ───────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small Data Engineering II -- Assignment 2}
+\rhead{\small Uppsala University}
+\cfoot{\thepage}
+
+% ── Hyperref setup ────────────────────────────────────────────────────────────
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── Title page ────────────────────────────────────────────────────────────────
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+  {\large Uppsala University\\[0.3em]
+   Department of Information Technology\\[2cm]}
+  {\LARGE\bfseries Assignment 2\\[0.5em]}
+  {\Large Data Stream Processing\\[2cm]}
+  {\large Course: Data Engineering II\\[1.5cm]}
+  {\normalsize Arnab Kumar Ghosh\\[0.5cm]}
+  {\normalsize \today\\[3cm]}
+  \vfill
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% =============================================================================
+\section{Task 1: Setting up Apache Pulsar}
+% =============================================================================
+
+Apache Pulsar is an open-source distributed messaging and streaming platform.
+Before we can produce or consume messages, we need a running Pulsar service.
+There are two ways to do this: installing Pulsar directly on the VM, or running it
+inside a Docker container. In this task, I used the Docker method because it is
+faster to set up and keeps the VM clean.
+
+\subsection{Setting up the VM}
+
+Before starting Pulsar, the VM needs Java and Docker. I wrote a setup script
+\texttt{setup\_vm.sh} to install all prerequisites automatically.
+
+The script does the following steps:
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item Updates all system packages with \texttt{apt update} and \texttt{apt upgrade}.
+  \item Installs the Java Runtime Environment, which Pulsar requires to run.
+  \item Installs Docker CE using Docker's official repository and starts the Docker service.
+  \item Installs \texttt{python3-pip} and the
+        \texttt{pulsar-client==2.9.4} Python library.
+\end{itemize}
+
+\subsection{Setting up Pulsar in a container in a VM}
+
+Once the VM was ready, I started Apache Pulsar in standalone mode using the
+official Docker image. Standalone mode runs the broker, BookKeeper, and
+ZooKeeper all in one process, which is enough for development and testing.
+
+\begin{lstlisting}[style=shell, caption={Starting Apache Pulsar in a Docker container}]
+docker run -it \
+  -p 6650:6650 \
+  -p 8080:8080 \
+  --mount source=pulsardata,target=/pulsar/data \
+  --mount source=pulsarconf,target=/pulsar/conf \
+  apachepulsar/pulsar:2.9.4 bin/pulsar standalone
+\end{lstlisting}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \texttt{-p 6650:6650} -- Exposes the Pulsar broker port so clients
+        can connect to it.
+  \item \texttt{-p 8080:8080} -- Exposes the Pulsar admin REST API port.
+  \item \texttt{--mount source=pulsardata} -- Mounts a named Docker volume
+        for persistent message data. Data survives even if the container is restarted.
+  \item \texttt{--mount source=pulsarconf} -- Mounts a separate volume for
+        Pulsar configuration files.
+  \item \texttt{bin/pulsar standalone} -- Starts Pulsar in standalone mode.
+\end{itemize}
+
+\subsection{Verification}
+
+When Pulsar starts successfully, the logs show a JSON status block with
+\texttt{"alive": true} and regular HTTP request lines from the admin API.
+This confirms that the broker is running and healthy.
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{task-1-pulser-setup.png}
+  \caption{Apache Pulsar running successfully in standalone mode inside a Docker container.}
+  \label{fig:task1-pulsar}
+\end{figure}
+
+\newpage
+
+% =============================================================================
+\section{Task 2: Producing and Consuming Messages}
+% =============================================================================
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsection{A: Running Apache Pulsar, consumer and producer on a single
+machine}
+
+With Pulsar running, we can now write a producer and a consumer. In this part,
+both programs run on the same VM that hosts the Pulsar broker.
+
+\subsubsection{Installing the Python Client Library}
+
+Before running any Python code, the Pulsar client library must be installed.
+The setup script already handles this, but the command is:
+
+\begin{lstlisting}[style=shell]
+pip install pulsar-client==2.9.4
+\end{lstlisting}
+
+\subsubsection{The Consumer}
+
+The consumer subscribes to a topic and waits for messages. It acknowledges
+each message it receives so Pulsar knows the message was processed.
+
+\lstinputlisting[style=python, caption={consumer-task-2-A.py}]{../consumer-task-2-A.py}
+
+\subsubsection{The Producer}
+
+The producer connects to the same topic and sends one message.
+
+\lstinputlisting[style=python, caption={producer.py}]{../producer.py}
+
+\subsubsection{Running the Programs}
+
+I opened three separate SSH sessions to the VM. Pulsar was already running
+in the first session. I started the consumer in the second session and left it
+waiting. I then ran the producer in the third session.
+
+\begin{lstlisting}[style=shell, caption={Running the consumer and producer}]
+# Terminal 2: start the consumer and keep it waiting
+python3 consumer.py
+
+# Terminal 3: run the producer to send a message
+python3 producer.py
+\end{lstlisting}
+
+As soon as the producer sent the message, the consumer printed:
+
+\begin{lstlisting}[style=shell]
+Received message : 'b'Welcome to Data Engineering Course!''
+\end{lstlisting}
+
+This confirms that the message was successfully delivered through the Pulsar broker.
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{task-2-consuer-producer-message.png}
+  \caption{Consumer receiving a message sent by the producer on the same machine.}
+  \label{fig:task2a}
+\end{figure}
+
+\newpage
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsection{B: Running Apache Pulsar, consumer and producer on multiple
+machines}
+
+In this part, the setup is distributed across two separate virtual machines on the Swedish Science Cloud (NAISS).
+Apache Pulsar and the producer run on \textbf{VM A}, while the consumer runs on \textbf{VM B}.
+
+\subsubsection{Infrastructure}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \textbf{VM A} (\texttt{arnab-de2-a2-t1}): private IP \texttt{192.168.2.198}: runs
+        the Pulsar broker in Docker and the producer.
+  \item \textbf{VM B} (\texttt{arnab-de2-a2-t2}): private IP \texttt{192.168.2.166}: runs
+        the consumer only. No Docker is required on this machine.
+\end{itemize}
+
+\subsubsection{Which IP Address to Use?}
+
+The private IP address should be used. Both VMs are on the same Swedish Science Cloud
+(NAISS) internal network, so VM B can reach VM A directly using the private IP
+(\texttt{192.168.2.198}). The traffic stays inside the data centre and does not leave
+the internal network. The public floating IP (\texttt{130.*.*.*}) routes traffic externally
+and would require opening port 6650 in the security group, which adds unnecessary
+exposure. Therefore, I used the private IP address in the consumer's broker URL.
+
+\subsubsection{Starting Pulsar on VM A}
+
+I used the same Docker command as in Task 1 without any changes:
+
+\begin{lstlisting}[style=shell, caption={Starting Pulsar on VM A -- same command as Task 1}]
+docker run -it \
+  -p 6650:6650 \
+  -p 8080:8080 \
+  --mount source=pulsardata,target=/pulsar/data \
+  --mount source=pulsarconf,target=/pulsar/conf \
+  apachepulsar/pulsar:2.9.4 bin/pulsar standalone
+\end{lstlisting}
+
+Since both VMs are on the same Swedish Science Cloud (NAISS) private network, VM B can connect to the broker
+on VM A's private IP even with the default port binding.
+
+\subsubsection{The Consumer on VM B}
+On VM B, only the \texttt{pulsar-client} library is needed:
+
+\begin{lstlisting}[style=shell]
+pip3 install pulsar-client==2.9.4
+\end{lstlisting}
+
+The consumer script is identical in logic to Part A, but the broker URL points to
+VM A's private IP instead of \texttt{localhost}:
+
+\lstinputlisting[style=python, caption={consumer-task-2-B.py -- consumer running on VM B}]{../consumer-task-2-B.py}
+
+
+\subsubsection{Running the Programs}
+
+I started the consumer on VM B first, then ran the producer on VM A.
+The consumer immediately printed the received message, confirming that
+the message flowed correctly across the two machines through the Pulsar broker.
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{task-2-B-consuer-producer-message.png}
+  \caption{Consumer on VM B (\texttt{arnab-de2-a2-t2}) receiving a message produced on VM A (\texttt{arnab-de2-a2-t1}), demonstrating cross-machine message delivery via Apache Pulsar.}
+  \label{fig:task2b}
+\end{figure}
+
+\newpage
+
+% =============================================================================
+\section{Task 3: Conceptual Questions}
+% =============================================================================
+
+\subsection*{1. What are the primary trade-offs when deploying Apache Pulsar in a Docker container versus a native environment?}
+
+Using Docker is quick and easy. You can start Pulsar with one command and it works the
+same on any machine. The downside is that Docker adds a network layer. By default, Pulsar
+tells clients to connect to its container-internal IP, which other machines cannot reach.
+You need to set \texttt{PULSAR\_ADVERTISED\_ADDRESS} to fix this. There is also a small
+performance cost compared to running natively.
+
+Running Pulsar directly on the VM (native) gives better performance and simpler networking.
+However, you have to install Java, ZooKeeper, BookKeeper, and Pulsar manually, which
+takes more time and is harder to reproduce on another machine.
+
+\subsection*{2. What features does Apache Pulsar support that previous distributed streaming frameworks, such as Kafka, do not?}
+
+Apache Pulsar has several features that Kafka does not have natively:
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \textbf{Unified messaging}: Pulsar supports both message queuing and pub-sub in
+        one system. Kafka is mainly a pub-sub log.
+  \item \textbf{Multi-tenancy}: Pulsar has built-in support for multiple tenants with
+        separate access control and resource limits. Kafka has no such feature.
+  \item \textbf{Geo-replication}: Pulsar can replicate data across data centres out of the
+        box. Kafka needs extra tools like MirrorMaker for this.
+  \item \textbf{Tiered storage}: Pulsar can move old data automatically to cheap storage
+        like AWS S3, keeping hot data on fast disks.
+  \item \textbf{Pulsar Functions}: a simple built-in way to run stream processing logic
+        without needing a separate engine like Flink or Spark.
+  \item \textbf{Decoupled storage}: brokers and storage (BookKeeper) are separate, so
+        you can scale them independently.
+\end{itemize}
+
+\subsection*{3. What is the issue with using a batch processing approach on data at scale? How can Apache Pulsar overcome this?}
+
+In batch processing, data is collected for a period of time and then processed all at once.
+This means results are delayed until the whole batch is done. At large scale, batches
+become very big, which uses a lot of memory and CPU at once. If something fails, you may
+need to reprocess the entire batch. You also cannot react to events as they happen.
+
+Apache Pulsar processes each message as soon as it arrives. This gives very low latency.
+If a message fails, only that message needs to be retried, not the whole dataset. Pulsar
+stores messages in BookKeeper, so they can be replayed at any time without reprocessing
+everything from the start.
+
+\subsection*{4. What is the underlying messaging pattern used by Apache Pulsar? What is the advantage of this messaging pattern?}
+
+Pulsar uses the \textbf{publish-subscribe (pub-sub)} pattern. A producer sends messages
+to a topic. One or more consumers subscribe to that topic and receive the messages.
+The producer does not need to know who the consumers are.
+
+The main advantage is that producers and consumers are loosely coupled. You can add or
+remove consumers without changing the producer. Multiple consumers can also read from
+the same topic at the same time, which makes the system flexible and easy to scale.
+
+\subsection*{5. What are different modes of subscription? When is each mode used?}
+
+Pulsar has four subscription modes:
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \textbf{Exclusive}: only one consumer is allowed at a time. Used when you need
+        strict ordering and a single consumer.
+  \item \textbf{Shared}: messages are spread across multiple consumers. Used when you
+        want to process messages in parallel and order does not matter.
+  \item \textbf{Failover}: one consumer is active and others are on standby. If the active
+        consumer stops, a standby takes over. Used when you need ordering and high availability.
+  \item \textbf{Key-shared}: messages with the same key always go to the same consumer.
+        Used when you need per-key ordering but also want parallel processing.
+\end{itemize}
+
+\subsection*{6. What is the role of ZooKeeper? Is it possible to ensure reliability without ZooKeeper?}
+
+ZooKeeper keeps track of the cluster state. It stores information about which brokers are
+running, which broker owns which topic, and cluster configuration. It also helps brokers
+agree on a leader when a failover happens.
+
+Yes, it is possible to run without ZooKeeper. Pulsar 2.10 and later can use \textbf{etcd} or
+an embedded metadata store instead. Apache Kafka also removed ZooKeeper in version 3.x
+and replaced it with its own KRaft protocol. However, you always need some coordination
+service. Without one, the cluster cannot reliably agree on its state.
+
+\subsection*{7. What are the main architectural components of Apache Pulsar?}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \textbf{Brokers}: handle messages from producers and send them to consumers.
+        They do not store data themselves, so they are stateless.
+  \item \textbf{BookKeeper (Bookies)}: store messages on disk. Multiple bookies replicate
+        the data for durability.
+  \item \textbf{ZooKeeper}: stores cluster metadata and coordinates brokers.
+  \item \textbf{Producers}: applications that send messages to a topic.
+  \item \textbf{Consumers}: applications that read messages from a topic.
+  \item \textbf{Pulsar Functions} (optional): run small processing tasks directly inside Pulsar.
+\end{itemize}
+
+\subsection*{8. What is the meaning of broker in Pulsar?}
+
+A broker is a server that sits between producers and consumers. It receives messages from
+producers and delivers them to consumers. It also decides which BookKeeper ledger to write
+data to. Brokers do not store any data themselves, so if one broker goes down, another can
+take over its topics without losing any messages.
+
+\subsection*{9. What is the role of a tenant in Pulsar?}
+
+A tenant is the highest level of organisation in Pulsar. It represents a team, company, or
+application that uses the cluster. Each tenant can have its own namespaces, access rules,
+and resource limits. This way, many different users can share one Pulsar cluster without
+interfering with each other.
+
+\subsection*{10. What will happen if there is no log compaction in Apache Pulsar?}
+
+Without log compaction, the topic log keeps growing as new messages arrive. For topics
+that track the latest state of something (like a user's settings), old values pile up in the
+log. A consumer that wants the current state has to read through all the old messages to
+find it. This wastes storage space and makes replaying the log slow. Log compaction
+removes old values and keeps only the latest message for each key, so the log stays small
+and fast to read.
+
+\subsection*{11. What is the difference between Pulsar topics and partitions?}
+
+A \textbf{topic} is a named stream of messages. Producers write to it and consumers read
+from it. A \textbf{partitioned topic} is a topic that is split into several smaller topics called
+partitions. Each partition is handled by a different broker. This allows many brokers to
+work in parallel, which increases throughput. A regular (non-partitioned) topic uses only
+one broker, which keeps messages strictly ordered but limits how fast data can flow.
+Within a partition, order is guaranteed; across partitions, it is not.
+
+\subsection*{12. What is the role of acknowledgement in message delivery guarantees?}
+
+When a consumer finishes processing a message, it sends an acknowledgement (ack) to the
+broker. This tells the broker the message was handled successfully and can be removed.
+If the consumer does not send an ack (because it crashed, for example), the broker will
+redeliver the message after a timeout. This gives \textbf{at-least-once} delivery -- every
+message is guaranteed to be processed at least once. If a consumer wants the broker to
+resend a message immediately, it sends a negative acknowledgement (nack). Without acks,
+the broker has no way to know if a message was processed, so reliable delivery is not possible.
+
+
+\newpage
+% =============================================================================
+\begin{appendices}
+\section{VM Setup Script}
+% =============================================================================
+
+I used the following script to provision the VM with all required dependencies
+before running Pulsar and the Python programs.
+
+\lstinputlisting[style=shell, caption={setup\_vm.sh -- VM provisioning script}]{../setup_vm.sh}
+
+\end{appendices}
+% =============================================================================
+\end{document}
