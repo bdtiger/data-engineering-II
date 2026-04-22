@@ -14,6 +14,7 @@
 \usepackage{parskip}
 \usepackage{booktabs}
 \usepackage{graphicx}
+\usepackage{amsmath}
 \usepackage{fancyhdr}
 \usepackage[title]{appendix}
 
@@ -186,7 +187,7 @@ docker run -it \
   \item \texttt{bin/pulsar standalone} -- Starts Pulsar in standalone mode.
 \end{itemize}
 
-\subsection{Verification}
+\subsection{Running the Program}
 
 When Pulsar starts successfully, the logs show a JSON status block with
 \texttt{"alive": true} and regular HTTP request lines from the admin API.
@@ -232,7 +233,7 @@ each message it receives so Pulsar knows the message was processed.
 
 The producer connects to the same topic and sends one message.
 
-\lstinputlisting[style=python, caption={producer.py}]{../producer.py}
+\lstinputlisting[style=python, caption={producer-task-2.py}]{../producer-task-2.py}
 
 \subsubsection{Running the Programs}
 
@@ -472,6 +473,103 @@ message is guaranteed to be processed at least once. If a consumer wants the bro
 resend a message immediately, it sends a negative acknowledgement (nack). Without acks,
 the broker has no way to know if a message was processed, so reliable delivery is not possible.
 
+
+\newpage
+% =============================================================================
+\section{Task 4 (Extra): Splitting and Merging with Apache Pulsar}
+% =============================================================================
+
+\subsection{Issue with the Current Implementation}
+
+The original \texttt{conversion.py} processes each word sequentially in a single loop on one
+machine. When the number of words grows to millions, this approach becomes a bottleneck
+because:
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item All computation runs on a single thread and a single machine. There is no parallelism.
+  \item Memory usage grows linearly with the number of words since the entire string must be
+        held in memory at once.
+  \item A single failure stops the entire job with no mechanism for retrying just the failed word.
+  \item There is no backpressure: if the conversion is slow, words pile up in memory with no
+        way to buffer or distribute the load.
+\end{itemize}
+
+\subsection{Redesigned Architecture}
+
+The redesigned system replaces the sequential loop with an Apache Pulsar pipeline consisting
+of three roles:
+
+\begin{enumerate}[leftmargin=1.5cm]
+  \item \textbf{Producer (Splitter)} -- reads the input string, splits it into individual words,
+        and publishes each word as a JSON message to the \texttt{words-topic}.
+  \item \textbf{Worker consumers / producers} -- subscribe to \texttt{words-topic} using a
+        \textit{Shared} subscription so multiple workers can consume in parallel. Each worker
+        applies the \texttt{conversion()} function to its word and publishes the result to
+        \texttt{results-topic}.
+  \item \textbf{Merger consumer} -- subscribes to \texttt{results-topic}, collects converted
+        words keyed by their original index, and reassembles the final string once all words of
+        a job have arrived.
+\end{enumerate}
+
+Each message carries a \texttt{job\_id}, the word \texttt{index}, the \texttt{word}, and
+\texttt{total} (total number of words in the job). This allows the merger to know when a job
+is complete and reconstruct the original order correctly.
+
+The data flow is:
+
+\begin{center}
+  \texttt{Producer} $\xrightarrow{\text{words-topic}}$ \texttt{Worker} $\xrightarrow{\text{results-topic}}$ \texttt{Merger}
+\end{center}
+
+The \textit{Shared} subscription on \texttt{words-topic} means any number of worker
+processes can be added without changing the producer or merger. The Pulsar broker manages
+load balancing across workers automatically.
+
+\subsection{Implementation}
+
+The implementation consists of three Python files.
+
+\subsubsection{Producer -- producer-task-4.py}
+
+\lstinputlisting[style=python, caption={producer-task-4.py -- splits the input string and publishes words}]{../producer-task-4.py}
+
+\subsubsection{Worker Consumer/Producer -- consumer-task-4-worker.py}
+
+\lstinputlisting[style=python, caption={consumer-task-4-worker.py -- applies conversion and forwards results}]{../consumer-task-4-worker.py}
+
+\subsubsection{Merger Consumer -- consumer-task-4-merger.py}
+
+\lstinputlisting[style=python, caption={consumer-task-4-merger.py -- collects results and reassembles the string}]{../consumer-task-4-merger.py}
+
+\subsection{Running the Programs}
+
+All three components run on the same VM, each in a separate terminal session (e.g. with
+\texttt{tmux}). Pulsar must already be running before starting any of the components.
+
+\begin{lstlisting}[style=shell, caption={Starting the merger, worker, and producer in separate sessions}]
+# Session 1: start the merger first so it is ready to collect results
+python3 consumer-task-4-merger.py
+
+# Session 2: start one (or more) worker(s)
+python3 consumer-task-4-worker.py
+
+# Session 3: run the producer to split and publish the input string
+python3 producer-task-4.py
+\end{lstlisting}
+
+The producer splits the input string into words and publishes them to \texttt{words-topic}.
+The worker picks up each word, converts it to uppercase using \texttt{conversion()}, and
+publishes the result to \texttt{results-topic}. The merger collects all converted words and,
+once it has received all words for the job, prints the final reconstructed string.
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{task-4.png}
+  \caption{Task 4 running on a single VM: the producer splits the input string, the worker
+  applies the \texttt{conversion()} function to each word, and the merger reassembles the
+  converted string.}
+  \label{fig:task4}
+\end{figure}
 
 \newpage
 % =============================================================================
