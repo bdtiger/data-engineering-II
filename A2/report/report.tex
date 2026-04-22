@@ -141,7 +141,7 @@
 % =============================================================================
 
 Apache Pulsar is an open-source distributed messaging and streaming platform.
-Before we can produce or consume messages, we need a running Pulsar service.
+Before I could produce or consume messages, I needed a running Pulsar service.
 There are two ways to do this: installing Pulsar directly on the VM, or running it
 inside a Docker container. In this task, I used the Docker method because it is
 faster to set up and keeps the VM clean.
@@ -210,7 +210,7 @@ This confirms that the broker is running and healthy.
 \subsection{A: Running Apache Pulsar, consumer and producer on a single
 machine}
 
-With Pulsar running, we can now write a producer and a consumer. In this part,
+With Pulsar running, I wrote a producer and a consumer. In this part,
 both programs run on the same VM that hosts the Pulsar broker.
 
 \subsubsection{Installing the Python Client Library}
@@ -338,14 +338,14 @@ the message flowed correctly across the two machines through the Pulsar broker.
 
 \subsection*{1. What are the primary trade-offs when deploying Apache Pulsar in a Docker container versus a native environment?}
 
-Using Docker is quick and easy. You can start Pulsar with one command and it works the
+Using Docker is quick and easy. Pulsar can be started with one command and it works the
 same on any machine. The downside is that Docker adds a network layer. By default, Pulsar
 tells clients to connect to its container-internal IP, which other machines cannot reach.
-You need to set \texttt{PULSAR\_ADVERTISED\_ADDRESS} to fix this. There is also a small
+Setting \texttt{PULSAR\_ADVERTISED\_ADDRESS} fixes this. There is also a small
 performance cost compared to running natively.
 
 Running Pulsar directly on the VM (native) gives better performance and simpler networking.
-However, you have to install Java, ZooKeeper, BookKeeper, and Pulsar manually, which
+However, Java, ZooKeeper, BookKeeper, and Pulsar must all be installed manually, which
 takes more time and is harder to reproduce on another machine.
 
 \subsection*{2. What features does Apache Pulsar support that previous distributed streaming frameworks, such as Kafka, do not?}
@@ -353,26 +353,24 @@ takes more time and is harder to reproduce on another machine.
 Apache Pulsar has several features that Kafka does not have natively:
 
 \begin{itemize}[leftmargin=1.5cm]
-  \item \textbf{Unified messaging}: Pulsar supports both message queuing and pub-sub in
-        one system. Kafka is mainly a pub-sub log.
+  \item \textbf{Unified messaging}: Pulsar supports both message queuing and publish-subscribe in
+        one system. Kafka is mainly a publish-subscribe log.
   \item \textbf{Multi-tenancy}: Pulsar has built-in support for multiple tenants with
         separate access control and resource limits. Kafka has no such feature.
   \item \textbf{Geo-replication}: Pulsar can replicate data across data centres out of the
         box. Kafka needs extra tools like MirrorMaker for this.
-  \item \textbf{Tiered storage}: Pulsar can move old data automatically to cheap storage
-        like AWS S3, keeping hot data on fast disks.
   \item \textbf{Pulsar Functions}: a simple built-in way to run stream processing logic
         without needing a separate engine like Flink or Spark.
   \item \textbf{Decoupled storage}: brokers and storage (BookKeeper) are separate, so
-        you can scale them independently.
+        they can be scaled independently.
 \end{itemize}
 
 \subsection*{3. What is the issue with using a batch processing approach on data at scale? How can Apache Pulsar overcome this?}
 
 In batch processing, data is collected for a period of time and then processed all at once.
 This means results are delayed until the whole batch is done. At large scale, batches
-become very big, which uses a lot of memory and CPU at once. If something fails, you may
-need to reprocess the entire batch. You also cannot react to events as they happen.
+become very big, which uses a lot of memory and CPU at once. If something fails, the
+entire batch may need to be reprocessed. It is also not possible to react to events as they happen.
 
 Apache Pulsar processes each message as soon as it arrives. This gives very low latency.
 If a message fails, only that message needs to be retried, not the whole dataset. Pulsar
@@ -381,12 +379,12 @@ everything from the start.
 
 \subsection*{4. What is the underlying messaging pattern used by Apache Pulsar? What is the advantage of this messaging pattern?}
 
-Pulsar uses the \textbf{publish-subscribe (pub-sub)} pattern. A producer sends messages
+Pulsar uses the \textbf{publish-subscribe} pattern. A producer sends messages
 to a topic. One or more consumers subscribe to that topic and receive the messages.
 The producer does not need to know who the consumers are.
 
-The main advantage is that producers and consumers are loosely coupled. You can add or
-remove consumers without changing the producer. Multiple consumers can also read from
+The main advantage is that producers and consumers are loosely coupled. Consumers can
+be added or removed without changing the producer. Multiple consumers can also read from
 the same topic at the same time, which makes the system flexible and easy to scale.
 
 \subsection*{5. What are different modes of subscription? When is each mode used?}
@@ -394,38 +392,38 @@ the same topic at the same time, which makes the system flexible and easy to sca
 Pulsar has four subscription modes:
 
 \begin{itemize}[leftmargin=1.5cm]
-  \item \textbf{Exclusive}: only one consumer is allowed at a time. Used when you need
-        strict ordering and a single consumer.
-  \item \textbf{Shared}: messages are spread across multiple consumers. Used when you
-        want to process messages in parallel and order does not matter.
+  \item \textbf{Exclusive}: only one consumer is allowed at a time. Used when strict
+        ordering and a single consumer are required.
+  \item \textbf{Shared}: messages are spread across multiple consumers. Used when
+        parallel processing is needed and order does not matter.
   \item \textbf{Failover}: one consumer is active and others are on standby. If the active
-        consumer stops, a standby takes over. Used when you need ordering and high availability.
+        consumer stops, a standby takes over. Used when ordering and high availability are both required.
   \item \textbf{Key-shared}: messages with the same key always go to the same consumer.
-        Used when you need per-key ordering but also want parallel processing.
+        Used when per-key ordering is needed but parallel processing is also desired.
 \end{itemize}
 
 \subsection*{6. What is the role of ZooKeeper? Is it possible to ensure reliability without ZooKeeper?}
 
 ZooKeeper keeps track of the cluster state. It stores information about which brokers are
-running, which broker owns which topic, and cluster configuration. It also helps brokers
-agree on a leader when a failover happens.
+running, which broker owns which topic, and cluster configuration.
 
-Yes, it is possible to run without ZooKeeper. Pulsar 2.10 and later can use \textbf{etcd} or
-an embedded metadata store instead. Apache Kafka also removed ZooKeeper in version 3.x
-and replaced it with its own KRaft protocol. However, you always need some coordination
-service. Without one, the cluster cannot reliably agree on its state.
+Yes, it is possible to ensure reliability without ZooKeeper. 
+Pulsar 2.10 and later introduced a pluggable metadata store, allowing ZooKeeper to be replaced with an embedded metadata store. 
+However, some coordination service is always needed. Without one, the cluster cannot reliably agree on its state.
+
+
 
 \subsection*{7. What are the main architectural components of Apache Pulsar?}
 
 \begin{itemize}[leftmargin=1.5cm]
   \item \textbf{Brokers}: handle messages from producers and send them to consumers.
         They do not store data themselves, so they are stateless.
-  \item \textbf{BookKeeper (Bookies)}: store messages on disk. Multiple bookies replicate
+  \item \textbf{BookKeeper}: store messages on disk. Multiple bookies replicate
         the data for durability.
   \item \textbf{ZooKeeper}: stores cluster metadata and coordinates brokers.
   \item \textbf{Producers}: applications that send messages to a topic.
   \item \textbf{Consumers}: applications that read messages from a topic.
-  \item \textbf{Pulsar Functions} (optional): run small processing tasks directly inside Pulsar.
+  \item \textbf{Pulsar Functions}: run small processing tasks directly inside Pulsar.
 \end{itemize}
 
 \subsection*{8. What is the meaning of broker in Pulsar?}
@@ -437,7 +435,7 @@ take over its topics without losing any messages.
 
 \subsection*{9. What is the role of a tenant in Pulsar?}
 
-A tenant is the highest level of organisation in Pulsar. It represents a team, company, or
+A Pulsar tenant is an administrative unit that represents a team, company, or
 application that uses the cluster. Each tenant can have its own namespaces, access rules,
 and resource limits. This way, many different users can share one Pulsar cluster without
 interfering with each other.
@@ -462,31 +460,32 @@ Within a partition, order is guaranteed; across partitions, it is not.
 
 \subsection*{12. What is the role of acknowledgement in message delivery guarantees?}
 
-When a consumer finishes processing a message, it sends an acknowledgement (ack) to the
+When a consumer finishes processing a message, it sends an acknowledgement to the
 broker. This tells the broker the message was handled successfully and can be removed.
-If the consumer does not send an ack (because it crashed, for example), the broker will
-redeliver the message after a timeout. This gives \textbf{at-least-once} delivery -- every
-message is guaranteed to be processed at least once. If a consumer wants the broker to
-resend a message immediately, it sends a negative acknowledgement (nack). Without acks,
-the broker has no way to know if a message was processed, so reliable delivery is not possible.
+If the consumer does not send an acknowledgement, the broker will
+redeliver the message after a timeout. This ensures that every message will be processed at least once. 
+A consumer can also send a negative
+acknowledgement to ask the broker to resend a message right away. Without
+acknowledgements, the broker cannot tell whether a message was processed.
 
 % =============================================================================
-\section{Task 4 : Splitting and Merging with Apache Pulsar}
+\section{Task 4: Splitting and Merging with Apache Pulsar}
 % =============================================================================
 
 \subsection{Issue with the Current Implementation}
 
-The original \texttt{conversion.py} processes each word sequentially in a single loop on one
-machine. When the number of words grows to millions, this approach becomes a bottleneck
-because:
+The original \texttt{conversion.py} uses a \texttt{for} loop to process one word at a time
+on a single machine. This is fine for small inputs, but it does not scale. If the input
+contains 10 million words, one machine must do all the work in sequence. Processing time
+grows linearly with the number of words ($O(n)$), and the script cannot use multiple
+machines.
+
+The root cause is that the implementation is \textbf{synchronous and single-threaded}:
 
 \begin{itemize}[leftmargin=1.5cm]
-  \item All computation runs on a single thread and a single machine. There is no parallelism.
-  \item Memory usage grows linearly with the number of words since the entire string must be
-        held in memory at once.
-  \item A single failure stops the entire job with no mechanism for retrying just the failed word.
-  \item There is no backpressure: if the conversion is slow, words pile up in memory with no
-        way to buffer or distribute the load.
+  \item All computation runs on one thread and one machine. There is no parallel processing.
+  \item The entire string must be held in memory at once, so memory usage also grows linearly.
+  \item A single failure stops the entire job with no way to retry only the failed word.
 \end{itemize}
 
 \subsection{Redesigned Architecture}
@@ -497,7 +496,7 @@ of three roles:
 \begin{enumerate}[leftmargin=1.5cm]
   \item \textbf{Producer (Splitter)}: reads the input string, splits it into individual words,
         and publishes each word as a JSON message to the \texttt{words-topic}.
-  \item \textbf{Worker consumers / producers}: subscribe to \texttt{words-topic} using a
+  \item \textbf{Worker (consumers + producers)}: subscribe to \texttt{words-topic} using a
         \textit{Shared} subscription so multiple workers can consume in parallel. Each worker
         applies the \texttt{conversion()} function to its word and publishes the result to
         \texttt{results-topic}.
@@ -520,6 +519,15 @@ The \textit{Shared} subscription on \texttt{words-topic} means any number of wor
 processes can be added without changing the producer or merger. The Pulsar broker manages
 load balancing across workers automatically.
 
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{apache_pulsar_pipeline_architecture.jpg}
+  \caption{Architecture of the redesigned Pulsar pipeline: the producer splits the input
+  into words, workers process them in parallel via a Shared subscription, and the merger
+  reassembles the final output.}
+  \label{fig:pipeline-architecture}
+\end{figure}
+
 \subsection{Implementation}
 
 The implementation consists of three Python files:
@@ -541,7 +549,7 @@ All three components run on the same VM, each in a separate terminal session (e.
 # Session 1: start the merger first so it is ready to collect results
 python3 consumer-task-4-merger.py
 
-# Session 2: start one (or more) worker(s)
+# Session 2: start worker
 python3 consumer-task-4-worker.py
 
 # Session 3: run the producer to split and publish the input string
@@ -549,7 +557,7 @@ python3 producer-task-4.py
 \end{lstlisting}
 
 The producer splits the input string into words and publishes them to \texttt{words-topic}.
-The worker picks up each word, converts it to uppercase using \texttt{conversion()}, and
+The worker picks up each word, converts it to uppercase, and
 publishes the result to \texttt{results-topic}. The merger collects all converted words and,
 once it has received all words for the job, prints the final reconstructed string.
 
@@ -557,8 +565,7 @@ once it has received all words for the job, prints the final reconstructed strin
   \centering
   \includegraphics[width=\textwidth]{task-4.png}
   \caption{Task 4 running on a single VM: the producer splits the input string, the worker
-  applies the \texttt{conversion()} function to each word, and the merger reassembles the
-  converted string.}
+  converts each word to uppercase, and the merger reassembles the converted string.}
   \label{fig:task4}
 \end{figure}
 

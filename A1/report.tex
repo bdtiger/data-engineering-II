@@ -1,0 +1,635 @@
+\documentclass[11pt,a4paper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}   % Arial-like sans-serif font
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+
+% ── Colors ────────────────────────────────────────────────────────────────────
+\definecolor{codebg}{HTML}{F5F5F5}
+\definecolor{codeframe}{HTML}{CCCCCC}
+\definecolor{keyword}{HTML}{0000CC}
+\definecolor{comment}{HTML}{007700}
+\definecolor{string}{HTML}{CC0000}
+\definecolor{uu-red}{HTML}{990000}
+
+% ── Listings style ────────────────────────────────────────────────────────────
+\lstdefinestyle{docker}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  breakatwhitespace=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  commentstyle=\color{comment},
+  keywordstyle=\color{keyword}\bfseries,
+  stringstyle=\color{string},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  tabsize=2,
+}
+
+\lstdefinestyle{yaml}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  morecomment=[l]{\#},
+  commentstyle=\color{comment},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  tabsize=2,
+}
+
+\lstdefinestyle{shell}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+}
+
+% ── Section title formatting ──────────────────────────────────────────────────
+\titleformat{\section}{\large\bfseries\color{black}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+
+% ── Header / Footer ───────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small Data Engineering II -- Assignment 1}
+\rhead{\small Uppsala University}
+\cfoot{\thepage}
+
+% ── Hyperref setup ────────────────────────────────────────────────────────────
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── Title page ────────────────────────────────────────────────────────────────
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+  {\large Uppsala University\\[0.3em]
+   Department of Information Technology\\[2cm]}
+  {\LARGE\bfseries Assignment 1\\[0.5em]}
+  {\Large Orchestration and Contextualization Using Docker Containers\\[2cm]}
+  {\large Course: Data Engineering II\\[1.5cm]}
+  {\normalsize Arnab Kumar Ghosh\\[0.5cm]}
+  {\normalsize \today\\[3cm]}
+  \vfill
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% =============================================================================
+\section{Task 1: Introduction to Docker containers and DockerHub}
+% =============================================================================
+
+\subsection{Question 1: Contextualization vs.\ Orchestration}
+
+\textbf{Contextualization} is about setting up a container before it runs.
+We configure it with the right software, environment variables, and settings
+so it can do its job. A Dockerfile is a good example of this. It lists every
+step needed to prepare the container, like installing packages and setting
+the default command.
+
+\textbf{Orchestration} is about managing multiple containers that work together.
+It covers how they are started, stopped, scaled, and connected to each other.
+Docker Compose, Kubernetes, and Docker Swarm are all orchestration tools.
+
+The key difference is: contextualization is about what goes inside a single
+container, while orchestration is about how containers work together as
+a system.
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsection{Question 2: Dockerfile Contents and Key Commands}
+
+\subsubsection{The Dockerfile used in Task 1}
+
+\lstinputlisting[style=docker, caption={Dockerfile}]{Dockerfile}
+
+Line by line explanation:
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \texttt{FROM ubuntu:22.04} -- Sets the base image. Every instruction
+        below builds on top of Ubuntu 22.04. This is the starting point of
+        the container.
+  \item \texttt{RUN apt-get update} -- Refreshes the list of available
+        packages from Ubuntu's repositories.
+  \item \texttt{RUN apt-get -y upgrade} -- Upgrades all installed packages
+        to their latest version. The \texttt{-y} flag automatically answers
+        ``yes'' to confirmation prompts.
+  \item \texttt{RUN apt-get -y install sl} -- Installs the \texttt{sl}
+        program (Steam Locomotive), a command-line animation.
+  \item \texttt{ENV PATH="\$\{PATH\}:/usr/games/"} -- Adds \texttt{/usr/games}
+        to the system PATH so the \texttt{sl} command can be found without
+        typing its full path.
+  \item \texttt{CMD ["echo", "Data Engineering-II."]} -- The default command
+        that runs when the container starts in batch mode. It simply prints
+        the text to the terminal.
+\end{itemize}
+
+\subsubsection{docker run -it mycontainer/first:v1 bash -- Explanation}
+
+This command creates and starts a new container from the
+\texttt{mycontainer/first:v1} image and opens an interactive terminal:
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \texttt{-i} (interactive): Keeps the standard input open so we
+        can type commands.
+  \item \texttt{-t} (tty): Creates a pseudo-terminal inside the container,
+        giving us a proper shell experience.
+  \item \texttt{bash}: Overrides the default \texttt{CMD} and starts a
+        Bash shell instead, so we can explore the container manually.
+\end{itemize}
+
+\subsubsection{docker ps, docker images, and docker stats}
+
+\begin{lstlisting}[style=shell, caption={Outputs}]
+docker ps
+CONTAINER ID  IMAGE                 COMMAND  CREATED       STATUS       PORTS   NAMES
+ada47961b48d  mycontainer/first:v1  "bash"   44 hours ago  Up 44 hours          gracious_wilbur
+
+
+docker images
+
+REPOSITORY          TAG       IMAGE ID       CREATED        SIZE
+mycontainer/first   v1        24410324eeee   44 hours ago   145MB
+
+
+docker stats
+CONTAINER ID  NAME             CPU %   MEM USAGE / LIMIT    MEM %  NET I/O      BLOCK I/O  PIDS
+ada47961b48d  gracious_wilbur  0.00%   1.012MiB / 7.653GiB  0.01%  1.05kB / 0B  0B / 0B    1
+\end{lstlisting}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \texttt{docker ps}: Shows which containers are currently running.
+  \item \texttt{docker images}: Lists all Docker images on the system,
+        including their name, tag, ID, creation time, and disk size.
+  \item \texttt{docker stats}: Displays a live stream of resource usage
+        statistics (CPU, memory, network I/O) for running containers. Useful
+        for spotting performance bottlenecks.
+\end{itemize}
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsection{Question 3: What is the difference between docker run, docker exec, and docker build commands?}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \texttt{docker build}: This reads a Dockerfile and builds an
+        \emph{image} from it. No container is started yet. Example:
+        \texttt{docker build -t mycontainer/first:v1 .}
+
+  \item \texttt{docker run}: This takes a built image and starts a new
+        \emph{container} from it. Every time we run this command, it creates
+        a fresh container. Example:
+        \texttt{docker run mycontainer/first:v1}
+
+  \item \texttt{docker exec}: This runs a command inside a container that is
+        \emph{already running}. It does not create anything new. I used this
+        to open a shell inside my running container. Example:
+        \texttt{docker exec -it my\_running\_container bash}
+\end{itemize}
+
+To put it simply: \textbf{build} creates the image, \textbf{run} starts a
+container from that image, and \textbf{exec} lets us get inside a container
+that is already running.
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsection{Question 4: DockerHub and Publishing the Container}
+
+\textbf{DockerHub} (\url{https://hub.docker.com}) is an online registry for
+Docker images. We can push our images there and pull them from any machine.
+It is similar to GitHub, but for container images instead of code.
+
+\textbf{Why DockerHub is useful:}
+\begin{itemize}[leftmargin=1.5cm]
+  \item We can share images with others without sending files manually.
+  \item All versions of an image can be stored in one place using tags.
+  \item Many ready-made base images (like Ubuntu or PostgreSQL) are already
+        available there, which saves time.
+  \item It works well in team settings. Everyone can pull the same image
+        and get the same environment.
+\end{itemize}
+
+\textbf{Steps to push the container:}
+\begin{lstlisting}[style=shell]
+# Tagging the local image with my DockerHub username
+docker tag mycontainer/first:v1 bdtiger/de-2-a1:v1
+
+# Log in to DockerHub
+docker login
+
+# Push the image
+docker push bdtiger/de-2-a1:v1
+\end{lstlisting}
+
+The publicly available container is hosted at:\\
+\texttt{https://hub.docker.com/r/bdtiger/de-2-a1}
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsection{Question 5: Explain the difference between docker build and docker compose commands}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \texttt{docker build} is a command that builds a
+        \emph{single} image from a Dockerfile. It has no knowledge of other
+        containers, networks, or volumes.
+
+  \item \texttt{docker compose} manages
+        \emph{multiple containers} together. We describe all services,
+        networks, and volumes in a \texttt{docker-compose.yml} file, and then
+        bring the whole application up with one command:
+        \texttt{docker compose up}.
+\end{itemize}
+
+In practice, \texttt{docker compose} often calls \texttt{docker build}
+internally to build each service's image before starting the containers.
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsection{Question 6: Multi-Stage Build}
+
+A \textbf{multi-stage build} uses multiple \texttt{FROM} statements in a
+single Dockerfile. Each stage can have its own base image and purpose.
+In the final stage, we copy only the binaries we actually need and
+leave behind all the build tools.
+
+\lstinputlisting[style=docker, caption={Dockerfile.multistage}]{Dockerfile.multistage}
+
+\textbf{Benefits of the multi-stage approach:}
+\begin{itemize}[leftmargin=1.5cm]
+  \item \textbf{Smaller final image}: Build tools (gcc, make, git) are
+        present only in the builder stage and are not included in the final
+        image. This can reduce image size by tens or hundreds of megabytes.
+  \item \textbf{Improved security}: Fewer packages in the final image means
+        a smaller attack surface. Unused compilers and development libraries
+        cannot be exploited.
+  \item \textbf{Cleaner separation of concerns}: The build environment and
+        the runtime environment are kept separate, making the Dockerfile
+        easier to understand and maintain.
+\end{itemize}
+
+% =============================================================================
+\section{Task 2: Build a multi-container Apache Spark cluster using docker compose}
+% =============================================================================
+
+\subsection{Dockerfile.spark}
+
+The following Dockerfile is used as the base image for both the master and
+worker containers:
+
+\lstinputlisting[style=docker, caption={Dockerfile.spark}]{Dockerfile.spark}
+
+\subsection{docker-compose.yml}
+
+\lstinputlisting[style=yaml, caption={docker-compose.yml}]{docker-compose.yml}
+
+\subsection{Question 1: Explain docker compose configuration file}
+
+The configuration file defines two services that together form a Spark cluster:
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \textbf{spark-master}: This service builds the image from
+        \texttt{Dockerfile.spark} and starts the Spark master process.
+        \begin{itemize}
+          \item \texttt{hostname: sparkmaster} -- Sets the internal hostname
+                so the worker can reach the master using the DNS name
+                \texttt{sparkmaster}.
+          \item \texttt{ports} -- Maps host port 8080 (Web UI) and 7077
+                (Spark protocol) to the container. The Web UI lets us
+                monitor the cluster from a browser at
+                \texttt{http://localhost:8080}.
+          \item \texttt{command} -- Starts the master process, then runs
+                \texttt{tail -f /dev/null} to keep the container alive.
+        \end{itemize}
+
+  \item \textbf{spark-worker}: This service builds from the same image
+        and starts a Spark worker process.
+        \begin{itemize}
+          \item \texttt{depends\_on: spark-master} -- Docker Compose will
+                start the master container first, before starting the worker.
+          \item \texttt{command} -- Starts \texttt{start-slave.sh} with the
+                master URL \texttt{spark://sparkmaster:7077} so the worker
+                knows where to register.
+        \end{itemize}
+
+  \item \textbf{spark-network}: A custom bridge network is created so
+        both containers can reach each other by their service names. Without
+        this, containers on default bridge networks cannot resolve each
+        other's hostnames.
+\end{itemize}
+
+\textbf{How to start and test the cluster:}
+\begin{lstlisting}[style=shell]
+# Build images and start both containers
+docker compose up
+
+# Login to the master container
+docker exec -it spark-master bash
+
+# Run the following command inside the master container to test the cluster
+${SPARK_HOME}/bin/spark-submit \
+--class org.apache.spark.examples.SparkPi \
+--master spark://sparkmaster:7077 \
+${SPARK_HOME}/examples/jars/spark-examples_2.11-2.4.3.jar
+
+# Expected output:
+# Pi is roughly 3.14159...
+\end{lstlisting}
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsection{Question 2: What is the format of the docker compose compatible configuration file?}
+
+The docker compose configuration file uses the \textbf{YAML} format. YAML is a human-readable data format that uses
+indentation to show structure.
+
+The top-level keys in a Compose file are:
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \texttt{version}: Specifies the Compose file format version. This
+        determines which features are available. For example, version 3.x
+        is required for Swarm mode features.
+  \item \texttt{services}: Defines each container to run. Each sub-key is
+        a service name. Common options per service: \texttt{build},
+        \texttt{image}, \texttt{ports}, \texttt{environment},
+        \texttt{depends\_on}, \texttt{command}, \texttt{volumes},
+        \texttt{networks}.
+  \item \texttt{volumes}: Declares named volumes that can be shared
+        between services or persisted beyond container restarts.
+  \item \texttt{networks}: Declares custom networks to isolate or connect
+        services.
+\end{itemize}
+
+The file is typically named \texttt{docker-compose.yml} (or
+\texttt{compose.yml} in newer Docker versions). It is read by the
+\texttt{docker compose} command.
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsection{Question 3: What are the limitations of docker compose?}
+
+Docker Compose is useful for local development, but it has some real limitations
+when we try to use it for anything production-ready.
+
+The biggest one is that everything runs on a single machine. I ran into this
+while working on the Spark cluster. If that one machine goes down, everything
+stops. There is no way to spread containers across multiple hosts.
+
+Scaling is also a manual process. If the Spark cluster gets more work and we
+need more workers, we have to run \texttt{docker compose up --scale} ourselves.
+Compose does not watch the load and add containers on its own.
+
+Finally, fault tolerance is quite basic. Compose can restart a crashed container
+if we set a \texttt{restart} policy. It cannot move
+containers to a different host or do any smarter recovery.
+
+% =============================================================================
+\section{Task 3: Introduction to different orchestration and contextualization frameworks}
+% =============================================================================
+
+\subsection{Question 1: Role of Orchestration and Contextualization
+for Large-Scale Distributed Applications}
+
+When an application grows beyond a single container, managing everything by
+hand quickly becomes unworkable. We need \textbf{contextualization} to make sure each
+container has the right libraries, packages, and settings. We also need \textbf{orchestration} to
+keep all those containers running together as a system.
+
+\textbf{Orchestration} matters especially when things go wrong or when load changes.
+A single host can go down, traffic can spike, and we cannot be around to
+restart containers manually every time. An orchestration tool handles that
+for us.
+
+\bigskip
+\noindent\textbf{Some frameworks worth knowing:}
+
+\textbf{Docker Compose} is what I used in Task 2. It is straightforward.
+We write one YAML file, run \texttt{docker compose up}, and everything starts.
+But it only works on one machine, which is its main limitation.
+
+\textbf{Docker Swarm} is Docker's own solution for running containers across
+multiple machines. The good thing about Swarm is that it uses the same Compose
+file format, so there is not much new to learn. It is lighter than Kubernetes
+but also has fewer features.
+
+\textbf{Kubernetes} is the most powerful of the three. It can automatically
+scale services, restart failed containers, and spread work across many nodes.
+The downside is that it takes time to learn. Setting it up is much more
+involved than Compose or Swarm.
+
+\bigskip
+\noindent\textbf{Improving the Task 2 Spark Cluster:}
+
+The Task 2 cluster runs on one machine. That is fine for learning, but in a
+real environment it is a problem --- if that machine fails, the whole cluster
+goes down.
+
+With \textbf{Docker Swarm}, the same setup could be deployed across multiple
+VMs with minimal changes. The worker count can be scaled by changing one
+number, and Swarm restarts failed workers on its own.
+
+With \textbf{Kubernetes}, we get more control. The Spark master can run as
+a \texttt{Deployment} and workers as a \texttt{ReplicaSet}. Kubernetes can
+also watch CPU usage and add more workers when the cluster is under load.
+It is more complex to set up, but better suited for a production environment.
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsection{Question 2: Security Risks and Vulnerability Analysis}
+
+\subsubsection*{Security Risks in the Task 2 Application}
+
+The Task 2 Spark cluster works well for learning, but looking at it from a
+security angle, there are a few things that would need to be fixed before
+using it in any real environment.
+
+The most obvious issue is that containers run as root. All processes inside
+the Ubuntu container run with full root privileges. If something inside the
+container gets exploited, the attacker would have root-level access to the
+host as well. The fix is simple in principle. We can create a non-root user
+in the Dockerfile and switch to it with the \texttt{USER} instruction.
+
+Port 8080 (the Spark Web UI) and port 7077 (the Spark master) are also exposed
+without any authentication. Anyone who can reach the host over the network
+could open the UI or submit jobs to the cluster. In a real deployment
+these should be behind a firewall or a reverse proxy.
+
+The software versions are also quite old. The image uses Spark 2.4.3, which
+was released in 2019. As we saw from the Trivy scan, this brings in a large
+number of known CVEs. Rebuilding against an updated base image regularly
+would help here.
+
+There are two smaller issues as well. The build downloads the Spark tarball
+over the network without verifying its checksum, which means a tampered file
+could go unnoticed. And the master and worker share one bridge network that
+is also reachable from the host, so there is no real network boundary between
+the containers and the outside.
+
+\subsubsection*{Vulnerability Analysis with Trivy}
+
+Trivy is a widely-used
+open-source container vulnerability scanner by Aqua Security. It can scan
+Docker images for known CVEs in OS packages and application libraries.
+
+\subsubsection*{Trivy Scan: \texttt{a1-spark-worker:latest}}
+
+The \texttt{a1-spark-worker:latest} image was scanned using:
+
+\begin{lstlisting}[style=shell]
+trivy image a1-spark-worker:latest > trivy-report.txt
+\end{lstlisting}
+
+\textbf{Key findings:}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item The \textbf{Ubuntu 22.04} base OS had \textbf{44 vulnerabilities}.
+        These are known CVEs in system packages that have not been patched
+        because the image has not been rebuilt against an updated base.
+  \item \texttt{htrace-core-3.1.0-incubating.jar} had \textbf{51
+        vulnerabilities} -- the highest count of any single file in the image.
+        This is an old distributed tracing library bundled with Hadoop.
+  \item \texttt{hadoop-common-2.7.3.jar} had \textbf{7 vulnerabilities}.
+        Hadoop 2.7.3 is very old and has many known security issues.
+  \item \texttt{commons-compress-1.8.1.jar} had \textbf{6 vulnerabilities},
+        and \texttt{avro-1.8.2.jar} had \textbf{5 vulnerabilities}.
+  \item Several other Spark JAR dependencies each had 1--3 vulnerabilities,
+        including \texttt{guava}, \texttt{ivy}, \texttt{jackson-core},
+        \texttt{hive-exec}, and \texttt{commons-beanutils}.
+\end{itemize}
+
+\subsubsection*{Trivy Scan: \texttt{a1-spark-master:latest}}
+
+The \texttt{a1-spark-master:latest} image was scanned separately using:
+
+\begin{lstlisting}[style=shell]
+trivy image a1-spark-master:latest > trivy-report-spark-master.txt
+\end{lstlisting}
+
+\textbf{Key findings:}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item The \textbf{Ubuntu 22.04} base OS had the same \textbf{44
+        vulnerabilities} as the worker image (35 LOW, 9 MEDIUM, 0 HIGH,
+        0 CRITICAL). This is expected since both images share the same base.
+  \item \texttt{spark-2.4.3-yarn-shuffle.jar} had the highest count with
+        \textbf{56 vulnerabilities}. This JAR is bundled for YARN integration
+        and is a very old, unpatched version.
+  \item \texttt{jackson-databind-2.6.7.1.jar} had \textbf{48
+        vulnerabilities}. The Jackson Databind library has a long history of
+        deserialization CVEs and this version is severely outdated.
+  \item \texttt{spark-core\_2.11-2.4.3.jar} had \textbf{18 vulnerabilities},
+        directly in the core Spark runtime.
+  \item \texttt{mesos-1.4.0-shaded-protobuf.jar} had \textbf{9
+        vulnerabilities} and \texttt{snakeyaml-1.15.jar} and
+        \texttt{netty-3.9.9.Final.jar} each had \textbf{8 vulnerabilities}.
+  \item \texttt{log4j-1.2.17.jar} and \texttt{commons-compress-1.8.1.jar}
+        each had \textbf{6 vulnerabilities}. The Log4j 1.x branch reached
+        end-of-life in 2015 and has several known RCE-related CVEs.
+  \item Several further JARs (\texttt{avro-1.8.2.jar},
+        \texttt{xercesImpl-2.9.1.jar}) had \textbf{5 vulnerabilities} each,
+        and \texttt{libthrift-0.9.3.jar}, \texttt{zookeeper-3.4.6.jar},
+        \texttt{snappy-java-1.1.7.3.jar} each had \textbf{4 vulnerabilities}.
+\end{itemize}
+
+\textbf{Comparison with \texttt{a1-spark-worker:latest}:}
+
+Both images are built from the same \texttt{Dockerfile.spark}, so most of the
+vulnerabilities are shared. The master image has a higher total count mainly
+because it includes the YARN shuffle JAR and more Spark runtime JARs. Either
+way, the underlying problem is the same --- Spark 2.4.3 is very old and its
+bundled dependencies have not been updated in years.
+
+
+
+\section{Task 4: Orchestration using Docker Swarm}
+
+\subsection{Objective and Setup}
+The goal of this task was to move our Apache Spark cluster from Docker Compose to Docker Swarm. This means moving from a simple local setup to a system built for multi-node environments.
+
+First, I started Docker Swarm on my machine. This made my computer the manager node of the cluster:
+\begin{lstlisting}[style=shell]
+docker swarm init  
+\end{lstlisting}
+
+Next, I created a new file \texttt{docker-compose-swarm.yml} and adapted the \texttt{docker-compose.yml} file to work with Swarm. I removed the \texttt{build} commands because Swarm needs images that are already built. I also added \texttt{deploy} sections to tell Swarm how many copies of each container to run. Finally, I changed the network type from \texttt{bridge} to \texttt{overlay} so containers can communicate across the Swarm network.
+
+\lstinputlisting[style=yaml, caption={docker-compose-swarm.yml}]{docker-compose-swarm.yml}
+
+\subsection{Deployment and Verification}
+The following Docker images were already built and available locally:
+\begin{lstlisting}[style=shell]
+arnab@student-208-121 A1 % docker images                                              
+a1-spark-master       latest    da38cde6f1e3   45 hours ago   1.17GB
+a1-spark-worker       latest    8645cbad8364   45 hours ago   1.17GB
+sparkaio/first        v0        b05746296546   45 hours ago   1.17GB
+bdtiger/multi-stage   v1        6945a548f2d3   46 hours ago   144MB
+mycontainer/first     v1        24410324eeee   3 days ago     145MB
+bdtiger/de-2-a1       v1        24410324eeee   3 days ago     145MB     
+\end{lstlisting}
+
+Since Swarm cannot build images itself, I used the pre-built Docker image from Task 2. Then, I launched the application on the Swarm cluster:
+\begin{lstlisting}[style=shell]
+docker stack deploy -c docker-compose-swarm.yml spark_stack
+\end{lstlisting}
+
+To check if the deployment worked, I used the \texttt{docker service ls} and \texttt{docker stack services spark\_stack} commands.
+\begin{lstlisting}[style=shell]
+docker stack ls                  
+NAME          SERVICES
+spark_stack   2
+
+docker stack services spark_stack
+ID             NAME                       MODE         REPLICAS   IMAGE                    PORTS
+5am5w1817nwe   spark_stack_spark-master   replicated   1/1        a1-spark-master:latest   *:7077->7077/tcp, *:8080->8080/tcp
+mdckdov5n6kg   spark_stack_spark-worker   replicated   2/2        a1-spark-worker:latest  
+\end{lstlisting}
+
+\subsection{Task Questions}
+
+\textbf{1. What are the key differences between docker-compose and Docker Swarm?}
+\begin{itemize}
+    \item \textbf{Design:} Docker Compose is designed to run containers on a single machine. Docker Swarm is designed to run applications across multiple machines.
+    \item \textbf{Building Images:} Compose can build images directly from our source files. Swarm cannot do this. It requires the images to be built beforehand.
+\end{itemize}
+
+\textbf{2. How does Docker Swarm improve scalability and service management compared to docker-compose?}
+\begin{itemize}
+    \item \textbf{Better Scaling:} Swarm can add more containers across different servers just by updating the replica count in the configuration. Compose is limited to the resources of a single server.
+    \item \textbf{Automatic Fixes:} If a container crashes, Swarm detects the failure and starts a new container to replace it. Compose cannot do this on its own.
+\end{itemize}
+
+\textbf{3. What challenges did you face when migrating from Docker Compose to Docker Swarm?}
+\begin{itemize}
+    \item \textbf{Image Building:} Since Swarm cannot build images, I had to make sure all the necessary images were built and available before deploying. This added an extra step to the workflow.
+\end{itemize}
+
+% =============================================================================
+\end{document}

@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  spark-master:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    hostname: sparkmaster
+    container_name: spark-master
+    ports:
+      - "8080:8080"   # Spark Web UI
+      - "7077:7077"   # Spark master port
+    command: >
+      sh -c "$${SPARK_HOME}/sbin/start-master.sh && tail -f /dev/null"
+    networks:
+      - spark-network
+
+  spark-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    container_name: spark-worker
+    depends_on:
+      - spark-master
+    command: >
+      sh -c "$${SPARK_HOME}/sbin/start-slave.sh spark://sparkmaster:7077 && tail -f /dev/null"
+    networks:
+      - spark-network
+
+networks:
+  spark-network:
+    driver: bridge
