@@ -226,14 +226,12 @@ pip install pulsar-client==2.9.4
 
 The consumer subscribes to a topic and waits for messages. It acknowledges
 each message it receives so Pulsar knows the message was processed.
-
-\lstinputlisting[style=python, caption={consumer-task-2-A.py}]{../consumer-task-2-A.py}
+The implementation of \texttt{consumer-task-2-A.py} is shown in Appendix \ref{app:code}.
 
 \subsubsection{The Producer}
 
 The producer connects to the same topic and sends one message.
-
-\lstinputlisting[style=python, caption={producer-task-2.py}]{../producer-task-2.py}
+The implementation of \texttt{producer-task-2.py} is shown in Appendix \ref{app:code}.
 
 \subsubsection{Running the Programs}
 
@@ -243,10 +241,10 @@ waiting. I then ran the producer in the third session.
 
 \begin{lstlisting}[style=shell, caption={Running the consumer and producer}]
 # Terminal 2: start the consumer and keep it waiting
-python3 consumer.py
+python3 consumer-task-2-A.py
 
 # Terminal 3: run the producer to send a message
-python3 producer.py
+python3 producer-task-2.py
 \end{lstlisting}
 
 As soon as the producer sent the message, the consumer printed:
@@ -315,9 +313,8 @@ pip3 install pulsar-client==2.9.4
 \end{lstlisting}
 
 The consumer script is identical in logic to Part A, but the broker URL points to
-VM A's private IP instead of \texttt{localhost}:
-
-\lstinputlisting[style=python, caption={consumer-task-2-B.py -- consumer running on VM B}]{../consumer-task-2-B.py}
+VM A's private IP instead of \texttt{localhost}.
+The implementation of \texttt{consumer-task-2-B.py} is shown in Appendix \ref{app:code}.
 
 
 \subsubsection{Running the Programs}
@@ -473,10 +470,8 @@ message is guaranteed to be processed at least once. If a consumer wants the bro
 resend a message immediately, it sends a negative acknowledgement (nack). Without acks,
 the broker has no way to know if a message was processed, so reliable delivery is not possible.
 
-
-\newpage
 % =============================================================================
-\section{Task 4 (Extra): Splitting and Merging with Apache Pulsar}
+\section{Task 4 : Splitting and Merging with Apache Pulsar}
 % =============================================================================
 
 \subsection{Issue with the Current Implementation}
@@ -500,13 +495,13 @@ The redesigned system replaces the sequential loop with an Apache Pulsar pipelin
 of three roles:
 
 \begin{enumerate}[leftmargin=1.5cm]
-  \item \textbf{Producer (Splitter)} -- reads the input string, splits it into individual words,
+  \item \textbf{Producer (Splitter)}: reads the input string, splits it into individual words,
         and publishes each word as a JSON message to the \texttt{words-topic}.
-  \item \textbf{Worker consumers / producers} -- subscribe to \texttt{words-topic} using a
+  \item \textbf{Worker consumers / producers}: subscribe to \texttt{words-topic} using a
         \textit{Shared} subscription so multiple workers can consume in parallel. Each worker
         applies the \texttt{conversion()} function to its word and publishes the result to
         \texttt{results-topic}.
-  \item \textbf{Merger consumer} -- subscribes to \texttt{results-topic}, collects converted
+  \item \textbf{Merger consumer}: subscribes to \texttt{results-topic}, collects converted
         words keyed by their original index, and reassembles the final string once all words of
         a job have arrived.
 \end{enumerate}
@@ -527,19 +522,15 @@ load balancing across workers automatically.
 
 \subsection{Implementation}
 
-The implementation consists of three Python files.
+The implementation consists of three Python files:
 
-\subsubsection{Producer -- producer-task-4.py}
+\begin{itemize}[leftmargin=1.5cm]
+  \item \texttt{producer-task-4.py}: splits the input string and publishes words to \texttt{words-topic}
+  \item \texttt{consumer-task-4-worker.py}: applies conversion function and forwards results to \texttt{results-topic}
+  \item \texttt{consumer-task-4-merger.py}: collects results from \texttt{results-topic} and reassembles the final string
+\end{itemize}
 
-\lstinputlisting[style=python, caption={producer-task-4.py -- splits the input string and publishes words}]{../producer-task-4.py}
-
-\subsubsection{Worker Consumer/Producer -- consumer-task-4-worker.py}
-
-\lstinputlisting[style=python, caption={consumer-task-4-worker.py -- applies conversion and forwards results}]{../consumer-task-4-worker.py}
-
-\subsubsection{Merger Consumer -- consumer-task-4-merger.py}
-
-\lstinputlisting[style=python, caption={consumer-task-4-merger.py -- collects results and reassembles the string}]{../consumer-task-4-merger.py}
+The implementation details are shown in Appendix \ref{app:code}.
 
 \subsection{Running the Programs}
 
@@ -574,13 +565,41 @@ once it has received all words for the job, prints the final reconstructed strin
 \newpage
 % =============================================================================
 \begin{appendices}
+\section{Code Files}
+\label{app:code}
+% =============================================================================
+
+\subsection{Task 2.A: Consumer}
+
+\lstinputlisting[style=python, caption={consumer-task-2-A.py}]{../consumer-task-2-A.py}
+
+\subsection{Task 2.A: Producer}
+
+\lstinputlisting[style=python, caption={producer-task-2.py}]{../producer-task-2.py}
+
+\subsection{Task 2.B: Consumer}
+
+\lstinputlisting[style=python, caption={consumer-task-2-B.py}]{../consumer-task-2-B.py}
+
+\subsection{Task 4: Producer}
+
+\lstinputlisting[style=python, caption={producer-task-4.py}]{../producer-task-4.py}
+
+\subsection{Task 4: Worker}
+
+\lstinputlisting[style=python, caption={consumer-task-4-worker.py}]{../consumer-task-4-worker.py}
+
+\subsection{Task 4: Merger}
+
+\lstinputlisting[style=python, caption={consumer-task-4-merger.py}]{../consumer-task-4-merger.py}
+
 \section{VM Setup Script}
 % =============================================================================
 
 I used the following script to provision the VM with all required dependencies
 before running Pulsar and the Python programs.
 
-\lstinputlisting[style=shell, caption={setup\_vm.sh -- VM provisioning script}]{../setup_vm.sh}
+\lstinputlisting[style=shell, caption={setup\_vm.sh}]{../setup_vm.sh}
 
 \end{appendices}
 % =============================================================================
