@@ -6,6 +6,7 @@ Every message contains a JSON payload:
   - job_id : unique identifier for this processing job
   - index  : position of the word in the original string
   - word   : the individual word to be processed
+    - total  : total number of words in the original string (for merger to know when all words have arrived)
 """
 
 import json
@@ -29,6 +30,7 @@ def main():
             "job_id": job_id,
             "index":  index,
             "word":   word,
+            "total":  len(words),
         }).encode("utf-8")
 
         producer.send(payload)

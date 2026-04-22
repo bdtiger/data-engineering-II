@@ -18,6 +18,8 @@ def main():
 
     print("Merger waiting for converted words...")
 
+    jobs = {}  # job_id -> {"words": {index: word}, "total": int}
+
     while True:
         msg = consumer.receive()
         try:
@@ -25,8 +27,19 @@ def main():
             job_id = data["job_id"]
             index  = data["index"]
             word   = data["word"]
+            total  = data["total"]
 
             print(f"Merger received word[{index}] = '{word}' (job: {job_id})")
+
+            if job_id not in jobs:
+                jobs[job_id] = {"words": {}, "total": total}
+            jobs[job_id]["words"][index] = word
+
+            if len(jobs[job_id]["words"]) == jobs[job_id]["total"]:
+                merged = " ".join(jobs[job_id]["words"][i] for i in range(total))
+                print(f"Merged result (job: {job_id}): '{merged}'")
+                del jobs[job_id]
+
             consumer.acknowledge(msg)
 
         except Exception as e:

@@ -40,6 +40,7 @@ def main():
                 "job_id": data["job_id"],
                 "index":  data["index"],
                 "word":   converted,
+                "total":  data["total"],
             }).encode("utf-8")
 
             producer.send(result)
