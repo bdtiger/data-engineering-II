@@ -2,8 +2,7 @@
 Task 4: Worker Consumer / Producer
 
 Subscribes to the 'words-topic'. For each incoming word message it:
-  1. Applies the conversion() function from conversion.py.
-  2. Publishes the converted word to 'results-topic'.
+  1. Publishes the converted word to 'results-topic'.
 """
 
 import json

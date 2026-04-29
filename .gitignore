@@ -173,6 +173,6 @@ temp/
 *.fls
 *.log
 *.out
-*.pdf
 *.synctex.gz
 *.toc
+credentials/

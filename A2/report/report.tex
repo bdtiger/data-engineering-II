@@ -195,7 +195,7 @@ This confirms that the broker is running and healthy.
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[width=\textwidth]{task-1-pulser-setup.png}
+  \includegraphics[width=\textwidth]{task-1-pulsar-setup.png}
   \caption{Apache Pulsar running successfully in standalone mode inside a Docker container.}
   \label{fig:task1-pulsar}
 \end{figure}
@@ -257,7 +257,7 @@ This confirms that the message was successfully delivered through the Pulsar bro
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[width=\textwidth]{task-2-consuer-producer-message.png}
+  \includegraphics[width=\textwidth]{task-2-consumer-producer-message.png}
   \caption{Consumer receiving a message sent by the producer on the same machine.}
   \label{fig:task2a}
 \end{figure}
@@ -325,7 +325,7 @@ the message flowed correctly across the two machines through the Pulsar broker.
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[width=\textwidth]{task-2-B-consuer-producer-message.png}
+  \includegraphics[width=\textwidth]{task-2-B-consumer-producer-message.png}
   \caption{Consumer on VM B (\texttt{arnab-de2-a2-t2}) receiving a message produced on VM A (\texttt{arnab-de2-a2-t1}), demonstrating cross-machine message delivery via Apache Pulsar.}
   \label{fig:task2b}
 \end{figure}
@@ -338,32 +338,32 @@ the message flowed correctly across the two machines through the Pulsar broker.
 
 \subsection*{1. What are the primary trade-offs when deploying Apache Pulsar in a Docker container versus a native environment?}
 
-Using Docker is quick and easy. Pulsar can be started with one command and it works the
-same on any machine. The downside is that Docker adds a network layer. By default, Pulsar
-tells clients to connect to its container-internal IP, which other machines cannot reach.
-Setting \texttt{PULSAR\_ADVERTISED\_ADDRESS} fixes this. There is also a small
-performance cost compared to running natively.
+In Task 1, I chose Docker because it let me start Pulsar with one command and did not
+change anything on the VM. The same \texttt{docker run} command works on any machine,
+so the setup is easy to repeat. The main problem I noticed is that Docker uses its own
+internal network. By default, Pulsar tells clients to connect to its internal IP, which
+other machines cannot reach. Setting \texttt{PULSAR\_ADVERTISED\_ADDRESS} fixes this.
 
-Running Pulsar directly on the VM (native) gives better performance and simpler networking.
-However, Java, ZooKeeper, BookKeeper, and Pulsar must all be installed manually, which
-takes more time and is harder to reproduce on another machine.
+Running Pulsar directly on the VM is faster and has simpler networking. The downside is
+that Java, ZooKeeper, BookKeeper, and Pulsar all need to be installed manually. This takes
+more time and is harder to repeat on a second machine.
 
 \subsection*{2. What features does Apache Pulsar support that previous distributed streaming frameworks, such as Kafka, do not?}
 
 Apache Pulsar has several features that Kafka does not have natively:
 
-\begin{itemize}[leftmargin=1.5cm]
-  \item \textbf{Unified messaging}: Pulsar supports both message queuing and publish-subscribe in
+ \textbf{Unified messaging}: Pulsar supports both message queuing and publish-subscribe in
         one system. Kafka is mainly a publish-subscribe log.
-  \item \textbf{Multi-tenancy}: Pulsar has built-in support for multiple tenants with
+
+  \textbf{Multi-tenancy}: Pulsar has built-in support for multiple tenants with
         separate access control and resource limits. Kafka has no such feature.
-  \item \textbf{Geo-replication}: Pulsar can replicate data across data centres out of the
-        box. Kafka needs extra tools like MirrorMaker for this.
-  \item \textbf{Pulsar Functions}: a simple built-in way to run stream processing logic
+ 
+  \textbf{Pulsar Functions}: a simple built-in way to run stream processing logic
         without needing a separate engine like Flink or Spark.
-  \item \textbf{Decoupled storage}: brokers and storage (BookKeeper) are separate, so
+
+  \textbf{Decoupled storage}: brokers and storage (BookKeeper) are separate, so
         they can be scaled independently.
-\end{itemize}
+
 
 \subsection*{3. What is the issue with using a batch processing approach on data at scale? How can Apache Pulsar overcome this?}
 
@@ -379,94 +379,100 @@ everything from the start.
 
 \subsection*{4. What is the underlying messaging pattern used by Apache Pulsar? What is the advantage of this messaging pattern?}
 
-Pulsar uses the \textbf{publish-subscribe} pattern. A producer sends messages
-to a topic. One or more consumers subscribe to that topic and receive the messages.
-The producer does not need to know who the consumers are.
+Pulsar uses the \textbf{publish-subscribe} pattern. A producer sends messages to a topic.
+A consumer subscribes to that topic and receives the messages. The producer and consumer
+do not talk to each other directly.
 
-The main advantage is that producers and consumers are loosely coupled. Consumers can
-be added or removed without changing the producer. Multiple consumers can also read from
-the same topic at the same time, which makes the system flexible and easy to scale.
+This made my work in Tasks 2 and 4 easier. In Task 2B, I added a consumer on a second
+VM and did not need to change the producer at all. In Task 4, I could start or stop worker
+processes freely and the producer and merger did not need to be updated. The broker
+handled everything in between. This separation is the main benefit of the pattern.
 
 \subsection*{5. What are different modes of subscription? When is each mode used?}
 
 Pulsar has four subscription modes:
 
-\begin{itemize}[leftmargin=1.5cm]
-  \item \textbf{Exclusive}: only one consumer is allowed at a time. Used when strict
+\textbf{Exclusive}: only one consumer is allowed at a time. Used when strict
         ordering and a single consumer are required.
-  \item \textbf{Shared}: messages are spread across multiple consumers. Used when
+  
+ \textbf{Shared}: messages are spread across multiple consumers. Used when
         parallel processing is needed and order does not matter.
-  \item \textbf{Failover}: one consumer is active and others are on standby. If the active
+
+ \textbf{Failover}: one consumer is active and others are on standby. If the active
         consumer stops, a standby takes over. Used when ordering and high availability are both required.
-  \item \textbf{Key-shared}: messages with the same key always go to the same consumer.
+  
+\textbf{Key-shared}: messages with the same key always go to the same consumer.
         Used when per-key ordering is needed but parallel processing is also desired.
-\end{itemize}
+
+
+In Task 4, I used \textbf{Shared} mode. 
 
 \subsection*{6. What is the role of ZooKeeper? Is it possible to ensure reliability without ZooKeeper?}
 
-ZooKeeper keeps track of the cluster state. It stores information about which brokers are
-running, which broker owns which topic, and cluster configuration.
+ZooKeeper keeps track of the cluster state. In my standalone Docker setup, ZooKeeper was running in the background to track the broker and topic configuration. 
 
-Yes, it is possible to ensure reliability without ZooKeeper. 
-Pulsar 2.10 and later introduced a pluggable metadata store, allowing ZooKeeper to be replaced with an embedded metadata store. 
-However, some coordination service is always needed. Without one, the cluster cannot reliably agree on its state.
-
-
+Yes, it is possible to run without it now. 
+Recent versions of Pulsar allow replacing ZooKeeper with a built-in metadata store to reduce the number of moving parts.
+However, some kind of coordination service is always required to keep the cluster running reliably.
 
 \subsection*{7. What are the main architectural components of Apache Pulsar?}
 
-\begin{itemize}[leftmargin=1.5cm]
-  \item \textbf{Brokers}: handle messages from producers and send them to consumers.
+  \textbf{Brokers}: handle messages from producers and send them to consumers.
         They do not store data themselves, so they are stateless.
-  \item \textbf{BookKeeper}: store messages on disk. Multiple bookies replicate
+
+  \textbf{BookKeeper}: store messages on disk. Multiple bookies replicate
         the data for durability.
-  \item \textbf{ZooKeeper}: stores cluster metadata and coordinates brokers.
-  \item \textbf{Producers}: applications that send messages to a topic.
-  \item \textbf{Consumers}: applications that read messages from a topic.
-  \item \textbf{Pulsar Functions}: run small processing tasks directly inside Pulsar.
-\end{itemize}
+
+  \textbf{ZooKeeper}: stores cluster metadata and coordinates brokers.
+
+  \textbf{Producers}: applications that send messages to a topic.
+
+  \textbf{Consumers}: applications that read messages from a topic.
+
+  \textbf{Pulsar Functions}: run small processing tasks directly inside Pulsar.
+
 
 \subsection*{8. What is the meaning of broker in Pulsar?}
 
-A broker is a server that sits between producers and consumers. It receives messages from
-producers and delivers them to consumers. It also decides which BookKeeper ledger to write
-data to. Brokers do not store any data themselves, so if one broker goes down, another can
-take over its topics without losing any messages.
+A broker acts as the middleman between producers and consumers. It receives messages from
+producers and delivers them to consumers.
+In my distributed setup (Task 2B), the broker ran on VM A.
+My producer sent messages to it, and my consumer on VM B connected to it to read those messages. 
+The broker does not store data itself. 
+Because it is stateless, if a broker crashes, another one can take over its topics without losing any of our messages.
 
 \subsection*{9. What is the role of a tenant in Pulsar?}
 
-A Pulsar tenant is an administrative unit that represents a team, company, or
+A Pulsar tenant is a top-level administrative unit that represents a team, company, or
 application that uses the cluster. Each tenant can have its own namespaces, access rules,
 and resource limits. This way, many different users can share one Pulsar cluster without
 interfering with each other.
 
 \subsection*{10. What will happen if there is no log compaction in Apache Pulsar?}
 
-Without log compaction, the topic log keeps growing as new messages arrive. For topics
-that track the latest state of something (like a user's settings), old values pile up in the
-log. A consumer that wants the current state has to read through all the old messages to
-find it. This wastes storage space and makes replaying the log slow. Log compaction
-removes old values and keeps only the latest message for each key, so the log stays small
-and fast to read.
+Without log compaction, the topic log keeps growing as new messages arrive. If a topic is tracking the latest messages, the log fills up with old messages. 
+A consumer that wants the current state has to read through all the old messages to
+find it. This wastes a lot of time and disk space. 
+Log compaction cleans this up by keeping only the newest message for each key, so the log stays small and fast to read.
 
 \subsection*{11. What is the difference between Pulsar topics and partitions?}
 
-A \textbf{topic} is a named stream of messages. Producers write to it and consumers read
-from it. A \textbf{partitioned topic} is a topic that is split into several smaller topics called
-partitions. Each partition is handled by a different broker. This allows many brokers to
-work in parallel, which increases throughput. A regular (non-partitioned) topic uses only
-one broker, which keeps messages strictly ordered but limits how fast data can flow.
-Within a partition, order is guaranteed; across partitions, it is not.
+A \textbf{topic} is a named channel where producers send messages and consumers read them (like the \texttt{words-topic} and \texttt{results-topic} I set up in Task 4).
+A \textbf{partitioned topic} splits that main topic into several smaller topics across different brokers. 
+This lets multiple brokers share the load to increase speed. In my assignment, I used regular, non-partitioned topics on a single broker. 
+This guarantees strict message ordering but limits maximum throughput compared to a partitioned setup.
 
 \subsection*{12. What is the role of acknowledgement in message delivery guarantees?}
 
-When a consumer finishes processing a message, it sends an acknowledgement to the
-broker. This tells the broker the message was handled successfully and can be removed.
-If the consumer does not send an acknowledgement, the broker will
-redeliver the message after a timeout. This ensures that every message will be processed at least once. 
-A consumer can also send a negative
-acknowledgement to ask the broker to resend a message right away. Without
-acknowledgements, the broker cannot tell whether a message was processed.
+When a consumer is done with a message, it sends an acknowledgement to the broker. This
+tells the broker the message was processed and does not need to be sent again. If the
+broker does not get an acknowledgement in time, it resends the message. This makes sure
+every message is processed at least once.
+
+I used this in all the consumers I wrote. The line \texttt{consumer.acknowledge(msg)}
+is what signals to Pulsar that the message was handled. Pulsar also has negative
+acknowledgements. These tell the broker to resend a message straight away, without
+waiting for the timeout. This is useful if the consumer finds an error while processing.
 
 % =============================================================================
 \section{Task 4: Splitting and Merging with Apache Pulsar}
