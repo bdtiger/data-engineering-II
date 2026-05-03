@@ -1,0 +1,862 @@
+\documentclass[11pt,a4paper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}   % Arial-like sans-serif font
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{hyperref}
+\usepackage{listingsutf8}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{fancyhdr}
+\usepackage[title]{appendix}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds}
+
+% ── Colors ────────────────────────────────────────────────────────────────────
+\definecolor{codebg}{HTML}{F5F5F5}
+\definecolor{codeframe}{HTML}{CCCCCC}
+\definecolor{keyword}{HTML}{0000CC}
+\definecolor{comment}{HTML}{007700}
+\definecolor{string}{HTML}{CC0000}
+\definecolor{uu-red}{HTML}{990000}
+
+% ── Listings style ────────────────────────────────────────────────────────────
+\lstdefinestyle{docker}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  breakatwhitespace=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  commentstyle=\color{comment},
+  keywordstyle=\color{keyword}\bfseries,
+  stringstyle=\color{string},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  tabsize=2,
+}
+
+\lstdefinestyle{yaml}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  morecomment=[l]{\#},
+  commentstyle=\color{comment},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  tabsize=2,
+}
+
+\lstdefinestyle{shell}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+}
+
+\lstdefinestyle{python}{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  breakatwhitespace=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  commentstyle=\color{comment},
+  keywordstyle=\color{keyword}\bfseries,
+  stringstyle=\color{string},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  tabsize=4,
+}
+
+% ── Section title formatting ──────────────────────────────────────────────────
+\lstset{inputencoding=utf8, extendedchars=true}
+\titleformat{\section}{\large\bfseries\color{black}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+
+% ── Header / Footer ───────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small Data Engineering II -- Assignment 3}
+\rhead{\small Uppsala University}
+\cfoot{\thepage}
+
+% ── Hyperref setup ────────────────────────────────────────────────────────────
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── Title page ────────────────────────────────────────────────────────────────
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+  {\large Uppsala University\\[0.3em]
+   Department of Information Technology\\[2cm]}
+  {\LARGE\bfseries Assignment 3\\[0.5em]}
+  {\Large Distributed Infrastructure, Model Serving and CI/CD\\[2cm]}
+  {\large Course: Data Engineering II\\[1.5cm]}
+  {\normalsize Arnab Kumar Ghosh\\[0.5cm]}
+  {\normalsize \today\\[3cm]}
+  \vfill
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% =============================================================================
+\section{Task 1: Single Server Deployment}
+% =============================================================================
+
+\subsection{Overview}
+
+In this task, a machine learning model serving application was deployed on a single
+virtual machine. CloudInit handled the dynamic contextualization. The application
+has three parts: a Flask web frontend, a Celery worker, and a RabbitMQ message
+broker. The model is a Keras/TensorFlow neural network trained on the Pima Indians
+Diabetes dataset.
+
+The OpenStack Python API was used from a client VM to automate the deployment.
+CloudInit installed all software and started all services at first boot. No manual
+login to the production server was needed.
+
+\subsection{Application Architecture}
+
+The production server has three components:
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \textbf{Flask app} (\texttt{app.py}): runs the web frontend on port 5100.
+        It receives prediction requests from the browser and sends them to Celery
+        as tasks.
+  \item \textbf{RabbitMQ}: sits between Flask and Celery. It holds tasks in a queue
+        until a worker is ready.
+  \item \textbf{Celery worker} (\texttt{workerA.py}): takes a task from the queue,
+        loads the Keras model, runs the prediction, and sends the result back.
+\end{itemize}
+
+The data flow is:
+\begin{center}
+  \texttt{Browser} $\rightarrow$ \texttt{Flask (app.py)} $\rightarrow$
+  \texttt{RabbitMQ} $\rightarrow$ \texttt{Celery worker (workerA.py)}
+  $\rightarrow$ \texttt{Flask} $\rightarrow$ \texttt{Browser}
+\end{center}
+
+\subsection{CloudInit Configuration}
+
+The file \texttt{cloud-cfg.txt} is given to OpenStack when the production VM is
+created. CloudInit runs the steps below automatically on the first boot:
+
+\begin{lstlisting}[style=yaml, caption={cloud-cfg.txt -- single server without Docker}]
+#cloud-config
+
+apt_update: true
+apt_upgrade: true
+packages:
+ - python3-pip
+ - python3-dev
+ - build-essential
+ - rabbitmq-server
+
+byobu_default: system
+
+runcmd:
+ - pip3 install "celery" "tensorflow==2.10.0" "amqp" "flask==2.3.1" "future" "numpy<2.0"
+ - git clone https://github.com/sztoor/model_serving.git
+ - celery --workdir=/model_serving/single_server_without_docker/production_server \
+       -A workerA worker --detach --loglevel=debug --concurrency=1 -n wkr1@backend
+ - python3 /model_serving/single_server_without_docker/production_server/app.py \
+       --host=0.0.0.0 --port=5100 &
+\end{lstlisting}
+
+\subsection{Starting the Production VM}
+
+On the client VM, the OpenStack RC file was sourced and the OpenStack Python
+libraries were installed. Then the following command was run:
+
+\begin{lstlisting}[style=shell, caption={Starting the production VM from the client}]
+python3 start_instance.py
+\end{lstlisting}
+
+The script reads credentials from the environment, creates the VM with the
+CloudInit user-data, and waits until the instance status is \texttt{ACTIVE}.
+After a floating IP is attached, the application is reachable at:
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item Welcome page: \texttt{http://<PRODUCTION-SERVER-IP>:5100}
+  \item Predictions page: \texttt{http://<PRODUCTION-SERVER-IP>:5100/predictions}
+\end{itemize}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{task-1-welcome.png}
+  \caption{Welcome page of the Flask application running on the production server.}
+  \label{fig:task1-welcome}
+\end{figure}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{task-1-predictions.png}
+  \caption{Predictions page showing diabetes prediction results returned by the Celery worker.}
+  \label{fig:task1-predictions}
+\end{figure}
+
+\subsection{Questions}
+
+\subsubsection*{1. Explain how the application works.}
+
+The application has three tiers. A client sends input values to the Flask web page.
+Flask puts the prediction request into a RabbitMQ queue as a Celery task. A Celery
+worker picks up the task, loads the model from \texttt{model.h5} and
+\texttt{model.json}, runs the prediction, and saves the result. Flask then reads
+the result and shows it on the \texttt{/predictions} page. This design keeps the
+web server fast because heavy model computation runs in a separate worker process.
+
+\subsubsection*{2. What are the drawbacks of the contextualization strategy adopted in Task 1?}
+
+\begin{enumerate}[leftmargin=1.5cm]
+  \item \textbf{Slow deployment}: every new VM must download and install all
+        packages from the internet at boot time. This takes 10--15 minutes.
+  \item \textbf{No reproducibility}: the script runs \texttt{apt\_upgrade: true},
+        so the latest package versions are installed. A new VM created later may get
+        different package versions and behave differently.
+  \item \textbf{No isolation}: all services share the same OS. A package conflict
+        or a crashed service can bring down the whole server.
+  \item \textbf{No automatic restart}: services are started as background processes.
+        If a process crashes, nothing restarts it.
+  \item \textbf{Hard to scale}: adding a Celery worker requires logging in to the VM
+        and running commands manually. There is no automated way to scale.
+  \item \textbf{No persistence}: if the VM is deleted, all data and configuration
+        are lost. The whole setup must be done again from scratch.
+\end{enumerate}
+
+\subsubsection*{3. How can we reduce the deployment time?}
+
+Most of the time is spent downloading and installing packages on each new VM.
+A pre-built Docker image solves this. All dependencies are installed once and
+saved to an image registry. When the VM boots, it only pulls the image and starts
+a container. This takes seconds instead of minutes. Another option is to create
+a custom OpenStack snapshot with all packages already installed. The VM then boots
+from that snapshot and skips the \texttt{apt install} step entirely.
+
+\subsubsection*{4. Summary}
+
+Task 1 showed how CloudInit can fully automate the setup of a model serving
+application on a new VM. The \texttt{cloud-cfg.txt} file did everything: it updated
+the system, installed Python and RabbitMQ, cloned the code, and started all three
+services in the right order. The OpenStack Python API started the whole process from
+the client VM. No manual login to the production server was needed. The prediction
+service was accessible over HTTP after deployment. The main problems with this
+approach are slow boot time, no isolation, no automatic restart, and no easy
+scaling. Task 2 addresses these problems by using Docker containers.
+
+\newpage
+
+% =============================================================================
+\section{Task 2: Single Server Deployment with Docker Containers}
+% =============================================================================
+
+\subsection{Overview}
+
+Task 2 repeats the deployment from Task 1 but uses Docker and Docker Compose.
+Each service runs in its own container. This gives isolation between services and
+makes it easy to add or remove Celery workers with one command.
+
+\subsection{Docker Compose Architecture}
+
+The \texttt{docker-compose.yml} defines three services:
+
+\begin{lstlisting}[style=yaml, caption={docker-compose.yml for the production server}]
+version: "3"
+services:
+  web:
+    build:
+      context: .
+      network: host
+    restart: always
+    ports:
+      - "5100:5100"
+    depends_on:
+      - rabbit
+  rabbit:
+    hostname: rabbit
+    image: rabbitmq:3.11-management
+    environment:
+      - RABBITMQ_DEFAULT_USER=rabbitmq
+      - RABBITMQ_DEFAULT_PASS=rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+  worker_1:
+    build:
+      context: .
+      network: host
+    hostname: worker_1
+    entrypoint: celery
+    command: -A workerA worker --loglevel=debug
+    links:
+      - rabbit
+    depends_on:
+      - rabbit
+\end{lstlisting}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \textbf{web}: the Flask frontend, built from the local \texttt{Dockerfile}.
+        It listens on port 5100 and waits for RabbitMQ to start first.
+  \item \textbf{rabbit}: the official RabbitMQ image with the management plugin.
+        The login credentials are set through environment variables.
+  \item \textbf{worker\_1}: the Celery worker, built from the same \texttt{Dockerfile}
+        but started with the Celery command instead of Flask.
+\end{itemize}
+
+\subsection{CloudInit Configuration (with Docker)}
+
+The \texttt{cloud-cfg.txt} for this task installs Docker CE and starts the
+application with Docker Compose at boot time. Python packages are no longer
+installed directly on the VM:
+
+\begin{lstlisting}[style=yaml, caption={cloud-cfg.txt -- single server with Docker}]
+#cloud-config
+apt_update: true
+apt_upgrade: true
+packages:
+ - apt-transport-https
+ - ca-certificates
+ - curl
+ - software-properties-common
+runcmd:
+ - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+ - add-apt-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
+ - apt-get update -y
+ - apt-get install -y docker-ce
+ - git clone https://github.com/sztoor/model_serving.git
+ - docker compose -f /model_serving/single_server_with_docker/production_server/docker-compose.yml up -d
+\end{lstlisting}
+
+\subsection{Scaling the Workers}
+
+Horizontal scaling was tested on the production VM after deployment.
+
+\begin{lstlisting}[style=shell, caption={Scaling Celery workers from 1 to 3}]
+# Initial state -- one worker
+sudo docker ps
+
+# Scale up to 3 workers
+sudo docker compose up --scale worker_1=3 -d
+
+# Verify three workers are running
+sudo docker ps
+
+# Scale back down
+sudo docker compose up --scale worker_1=1 -d
+\end{lstlisting}
+
+With three workers, five containers were running at the same time:
+\texttt{rabbit}, \texttt{web}, \texttt{worker\_1\_1}, \texttt{worker\_1\_2}, and
+\texttt{worker\_1\_3}. No changes were needed in Flask or RabbitMQ to add the
+extra workers.
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{task-2-docker-ps.png}
+  \caption{\texttt{docker ps} output after scaling to three Celery workers.}
+  \label{fig:task2-docker-ps}
+\end{figure}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{task-2-predictions.png}
+  \caption{Predictions page served by the Dockerised production server.}
+  \label{fig:task2-predictions}
+\end{figure}
+
+\subsection{Questions}
+
+\subsubsection*{1. What problems does Task 2 deployment solve compared to Task 1?}
+
+Docker fixes several problems from Task 1. Each service runs in its own container,
+so there are no dependency conflicts between Flask, Celery, and RabbitMQ. The
+\texttt{restart: always} setting means the web container restarts on its own if it
+crashes. Adding workers takes one command with \texttt{--scale}. The \texttt{Dockerfile}
+fixes the exact build environment, so the deployment is more reproducible than
+installing packages directly with \texttt{pip}.
+
+\subsubsection*{2. What are the outstanding issues that Task 2 cannot address?}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \textbf{Single point of failure}: all containers run on one VM. If that VM
+        goes down, the whole application stops.
+  \item \textbf{No cross-node scaling}: Docker Compose cannot spread containers
+        across several VMs. All workers share the resources of one machine.
+  \item \textbf{Manual deployment}: a new version requires running
+        \texttt{docker compose up} by hand. There is no automated pipeline.
+  \item \textbf{No load balancing}: the web service has one container. High traffic
+        cannot be spread across multiple web replicas automatically.
+\end{itemize}
+
+\subsubsection*{3. What are the possible solutions to address those outstanding issues?}
+
+A container orchestrator such as \textbf{Kubernetes} or \textbf{Docker Swarm} can
+run containers on many VMs, restart failed containers, and deploy updates without
+downtime. A CI/CD tool such as Git Hooks (Task 4) or GitHub Actions can rebuild and
+redeploy the application automatically when code changes. An ingress controller or
+load balancer placed in front of several \texttt{web} containers can spread traffic
+across all of them.
+
+\subsubsection*{4. Horizontal vs.\ vertical scalability. Which does Task 2 use?}
+
+\textbf{Vertical scalability} means giving more CPU or RAM to one machine.
+\textbf{Horizontal scalability} means running more instances of a service.
+Task 2 uses \textbf{horizontal} scalability. The \texttt{--scale worker\_1=3}
+command adds more worker containers instead of upgrading the VM. Because all
+containers are still on one host, this is intra-node horizontal scaling. Scaling
+across multiple hosts would need an orchestrator.
+
+\subsubsection*{5. Summary}
+
+Task 2 improved on Task 1 by putting every service into a container. Docker Compose
+managed RabbitMQ, Flask, and Celery with clear startup order and automatic restart.
+Scaling workers became simple with the \texttt{--scale} flag. The CloudInit script
+became shorter: it now only installs Docker and runs one \texttt{docker compose up}
+command. After scaling to three workers, the predictions page was still working
+correctly. This confirmed that all workers shared the same RabbitMQ queue and
+processed tasks in parallel.
+
+\newpage
+
+% =============================================================================
+\section{Task 3: Deployment of Multiple Servers Using Ansible}
+% =============================================================================
+
+\subsection{Overview}
+
+Task 3 adds a third VM to the setup. A client VM now manages two other VMs:
+a production server and a development server. The OpenStack Python API creates
+both VMs. An Ansible playbook then configures them at the same time. This
+replaces the CloudInit-only approach used in Tasks 1 and 2.
+
+\subsection{Infrastructure}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \textbf{Client VM}: runs the OpenStack client and Ansible. It creates the
+        other two VMs and runs the playbook to configure them.
+  \item \textbf{Production server}: runs the Dockerised application from Task 2.
+  \item \textbf{Development server}: holds the development code and the model
+        training script.
+\end{itemize}
+
+\subsection{CloudInit Files}
+
+Both the production and development servers use a small CloudInit file. Each file
+creates the \texttt{appuser} account and adds the cluster SSH public key:
+
+\begin{lstlisting}[style=yaml, caption={prod-cloud-cfg.txt and dev-cloud-cfg.txt (structure)}]
+#cloud-config
+
+users:
+ - name: appuser
+   sudo: ALL=(ALL) NOPASSWD:ALL
+   home: /home/appuser
+   shell: /bin/bash
+   ssh_authorized_keys:
+     - <CLUSTER-PUBLIC-KEY>
+
+byobu_default: system
+\end{lstlisting}
+
+These files are kept minimal on purpose. They only create the user and add the
+SSH key. Ansible handles everything else after the VMs are running.
+
+\subsection{Ansible Playbook}
+
+The \texttt{configuration.yml} playbook has two plays:
+
+\begin{enumerate}[leftmargin=1.5cm]
+  \item \textbf{All servers}: runs \texttt{apt} update and clones the repository
+        from GitHub onto every VM.
+  \item \textbf{Production server only}: installs Docker CE, sets the Docker MTU
+        to 1450 bytes to match the SNIC network, and starts the application with
+        Docker Compose.
+\end{enumerate}
+
+\begin{lstlisting}[style=yaml, caption={configuration.yml -- playbook structure (excerpt)}]
+- hosts: all
+  tasks:
+   - name: apt update
+     apt: update_cache=yes upgrade=dist
+     become: true
+   - name: Download git repository
+     become: true
+     git:
+      repo: 'https://github.com/sztoor/model_serving.git'
+      dest: /model_serving
+
+- hosts: prodserver
+  vars_files:
+   - setup_var.yml
+  tasks:
+   - name: Add Docker repository key
+     apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+     become: true
+   # ... install docker-ce, run docker compose up ...
+\end{lstlisting}
+
+\subsection{Running the Setup}
+
+\begin{lstlisting}[style=shell, caption={Full deployment sequence from the client VM}]
+# 1. Generate cluster SSH key pair
+mkdir -p /home/ubuntu/cluster-keys
+ssh-keygen -t rsa -f /home/ubuntu/cluster-keys/cluster-key -N ""
+
+# 2. Copy public key into prod-cloud-cfg.txt and dev-cloud-cfg.txt, then start VMs
+python3 start_instances.py
+
+# 3. Add VM private IPs to the Ansible inventory (/etc/ansible/hosts)
+
+# 4. Install Ansible
+sudo apt-add-repository ppa:ansible/ansible && sudo apt install ansible
+
+# 5. Run the playbook
+export ANSIBLE_HOST_KEY_CHECKING=False
+ansible-playbook configuration.yml \
+  --private-key=/home/ubuntu/cluster-keys/cluster-key
+\end{lstlisting}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{task-3-ansible-output.png}
+  \caption{Ansible playbook completing successfully for both the production and development servers.}
+  \label{fig:task3-ansible}
+\end{figure}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{task-3-predictions.png}
+  \caption{Predictions page of the application deployed to the production server via Ansible.}
+  \label{fig:task3-predictions}
+\end{figure}
+
+\subsection{Questions}
+
+\subsubsection*{1. What is the difference between CloudInit and Ansible?}
+
+\textbf{CloudInit} runs once at first boot before SSH is available. It is meant
+for bootstrapping: creating users, adding SSH keys, and installing a small set of
+packages. It cannot be run again after the VM is created.
+
+\textbf{Ansible} runs from a controller machine over SSH at any point in time.
+Playbooks are idempotent, meaning running them several times gives the same result.
+Ansible is built for configuration management and can apply changes to many machines
+at the same time.
+
+In this task, CloudInit was used only to create \texttt{appuser} and add the SSH
+key. Ansible then connected over SSH and handled all further setup.
+
+\subsubsection*{2. Explain the configurations in dev-cloud-cfg.txt and prod-cloud-cfg.txt.}
+
+Both files have the same structure. Each one creates one user called
+\texttt{appuser}. The user gets passwordless \texttt{sudo} rights, a
+\texttt{/bin/bash} shell, and the cluster SSH public key in
+\texttt{ssh\_authorized\_keys}. The \texttt{byobu\_default: system} line turns on
+the Byobu terminal multiplexer for interactive sessions. The files are small by
+design because Ansible takes care of the rest.
+
+\subsubsection*{3. What problem has Ansible solved?}
+
+Ansible solved the problem of configuring several machines at the same time.
+In Tasks 1 and 2, each VM needed its own CloudInit file and had to be set up
+separately. With Ansible, one playbook command from the client VM configures
+both the production server and the development server in one run. Common steps
+are listed once under \texttt{hosts: all}. Steps for only one server go in their
+own play. If the configuration needs to change, it is updated in one file and
+applied to all machines again.
+
+\newpage
+
+% =============================================================================
+\section{Task 4: CI/CD Using Git Hooks}
+% =============================================================================
+
+\subsection{Overview}
+
+Task 4 sets up a continuous delivery pipeline with Git Hooks. When a new model is
+pushed to the bare Git repository on the production server, a \texttt{post-receive}
+hook copies the new model files to the live application folder. No manual file
+copying or service restart is needed.
+
+\subsection{Architecture}
+
+The pipeline uses the same three VMs from Task 3:
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \textbf{Development server}: trains a new model with \texttt{neural\_net.py}
+        and pushes the model files to the production server over Git.
+  \item \textbf{Production server}: has a bare Git repository at
+        \texttt{/home/appuser/my\_project}. The \texttt{post-receive} hook copies
+        new files to the live application folder on every push.
+  \item \textbf{Client VM}: only needed for the initial SSH setup. It is not part
+        of the push pipeline.
+\end{itemize}
+
+\begin{center}
+  \texttt{Dev Server} $\xrightarrow{\text{git push (SSH)}}$
+  \texttt{Prod bare repo} $\xrightarrow{\text{post-receive hook}}$
+  \texttt{/model\_serving/ci\_cd/production\_server}
+\end{center}
+
+\subsection{The post-receive Hook}
+
+The hook file is at
+\texttt{/home/appuser/my\_project/hooks/post-receive} on the production server:
+
+\begin{lstlisting}[style=shell, caption={post-receive Git hook on the production server}]
+#!/bin/bash
+while read oldrev newrev ref
+do
+  if [[ $ref =~ .*/master$ ]];
+  then
+    echo "Master ref received. Deploying master branch to production..."
+    sudo git --work-tree=/model_serving/ci_cd/production_server \
+             --git-dir=/home/appuser/my_project checkout -f
+  else
+    echo "Ref $ref successfully received. Doing nothing: only the master \
+branch may be deployed on this server."
+  fi
+done
+\end{lstlisting}
+
+The hook reads each pushed branch name. If the branch is \texttt{master}, it runs
+\texttt{git checkout -f} with \texttt{--work-tree} to copy the pushed files into
+the live application folder. Old model files are replaced. If any other branch is
+pushed, the hook prints a message and does nothing.
+
+\subsection{Running the Pipeline}
+
+\begin{lstlisting}[style=shell, caption={Initial push from the development server}]
+# On the development server
+mkdir /home/appuser/my_project && cd /home/appuser/my_project
+git init
+cp /model_serving/ci_cd/development_server/model* .
+git add .
+git commit -m "initial model"
+git remote add production appuser@<PROD-IP>:/home/appuser/my_project
+git push production master
+\end{lstlisting}
+
+\begin{lstlisting}[style=shell, caption={Updating the model and pushing to production}]
+# Train a new model on the development server
+sudo python3 /model_serving/ci_cd/development_server/neural_net.py
+
+# Copy new model files to the git working directory
+cp /model_serving/ci_cd/development_server/model* /home/appuser/my_project/
+
+# Commit and push
+cd /home/appuser/my_project
+git add .
+git commit -m "updated model"
+git push production master
+\end{lstlisting}
+
+The expected output from the push confirms the hook ran:
+
+\begin{lstlisting}[style=shell]
+remote: Master ref received. Deploying master branch to production...
+To 192.168.x.x:/home/appuser/my_project
+   c20d19e..666ca0c  master -> master
+\end{lstlisting}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{task-4-git-push.png}
+  \caption{Output of \texttt{git push production master} showing the post-receive hook deploying the updated model.}
+  \label{fig:task4-push}
+\end{figure}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{task-4-updated-predictions.png}
+  \caption{Predictions page reflecting the updated model after the CI/CD push.}
+  \label{fig:task4-predictions}
+\end{figure}
+
+\subsection{Questions}
+
+\subsubsection*{1. What are Git hooks? Explain the post-receive script.}
+
+Git hooks are shell scripts that Git runs at certain points in the workflow. They
+are stored in the \texttt{hooks/} folder of a repository. Each hook has a fixed
+name that matches the event it listens to.
+
+The \texttt{post-receive} script in this task runs on the production server after a
+push is fully received. It reads each pushed branch. If the branch is
+\texttt{master}, it runs:
+
+\begin{lstlisting}[style=shell]
+sudo git --work-tree=/model_serving/ci_cd/production_server \
+         --git-dir=/home/appuser/my_project checkout -f
+\end{lstlisting}
+
+This copies the files from the push into the live folder, replacing the current
+model files. If any other branch is pushed, the hook only prints a message and
+stops. This makes sure only \texttt{master} commits reach production.
+
+\subsubsection*{2. Why is the bare Git repository needed on the production server?}
+
+A bare repository only stores the Git object database. It has no working tree.
+It is used as the remote that the development server pushes to. A normal
+repository cannot accept a push to its active branch because Git does not know
+how to update the working tree safely. A bare repository has no active branch and
+no working files, so it always accepts pushes. The \texttt{post-receive} hook then
+copies files to a separate live folder using \texttt{--work-tree}. This keeps the
+Git storage and the running application files in separate locations.
+
+\subsubsection*{3. Four Git hooks and their functionalities.}
+
+\begin{enumerate}[leftmargin=1.5cm]
+  \item \textbf{pre-commit}: runs before a commit is saved. It is often used to
+        run linters or tests. If it exits with an error, the commit is cancelled.
+  \item \textbf{commit-msg}: runs after a commit message is written. It can check
+        that the message follows a required format, such as including a ticket
+        number.
+  \item \textbf{pre-receive}: runs on the server before any branch is updated. It
+        can reject a push based on rules such as file size or branch naming.
+  \item \textbf{post-receive}: runs on the server after all branches are updated.
+        It is used to trigger deployments, send alerts, or update build status---as
+        shown in this task.
+\end{enumerate}
+
+\subsubsection*{4. Kubernetes deployment diagram for the multi-server setup.}
+
+The same application from Task 3 can be run in Kubernetes. A \textbf{Deployment}
+manages the Flask web pods. A \textbf{Service} of type \texttt{LoadBalancer}
+exposed the web pods to the outside. RabbitMQ runs in a \textbf{StatefulSet} behind
+a headless \textbf{Service}. The Celery workers run in a separate
+\textbf{Deployment} that can be scaled on its own. A \textbf{ConfigMap} stores
+non-secret settings such as the RabbitMQ hostname. A \textbf{Secret} stores
+credentials. Both the web pods and the worker pods mount a
+\textbf{PersistentVolumeClaim} to share the model files.
+
+\begin{figure}[h!]
+  \centering
+  \begin{tikzpicture}[
+      node distance=1.2cm and 2.0cm,
+      box/.style={rectangle, draw, rounded corners=3pt,
+                  minimum width=2.8cm, minimum height=0.85cm,
+                  font=\small\ttfamily, align=center},
+      svc/.style={box, fill=blue!10},
+      dep/.style={box, fill=green!10},
+      cfg/.style={box, fill=orange!10},
+      sec/.style={box, fill=red!10},
+      pvc/.style={box, fill=gray!15},
+      arr/.style={-Stealth, thick},
+    ]
+    \node[svc]  (web-svc)  {Service\\(web:5100)};
+    \node[dep]  (web-dep)  [below=of web-svc]   {Deployment\\web (Flask)};
+    \node[svc]  (rmq-svc)  [right=2.5cm of web-svc] {Service\\(rabbit:5672)};
+    \node[dep]  (rmq-dep)  [below=of rmq-svc]   {StatefulSet\\RabbitMQ};
+    \node[dep]  (wkr-dep)  [right=2.5cm of rmq-dep] {Deployment\\Celery workers};
+    \node[pvc]  (pvc)      [below=1.4cm of web-dep] {PersistentVolumeClaim\\(model files)};
+    \node[cfg]  (cm)       [below=of pvc]            {ConfigMap};
+    \node[sec]  (secret)   [right=2cm of cm]          {Secret};
+
+    \draw[arr] (web-svc) -- (web-dep);
+    \draw[arr] (rmq-svc) -- (rmq-dep);
+    \draw[arr] (web-dep) -- (rmq-svc);
+    \draw[arr] (wkr-dep) -- (rmq-svc);
+    \draw[arr] (web-dep) -- (pvc);
+    \draw[arr] (wkr-dep) -- (pvc);
+    \draw[arr] (cm)      -- (web-dep);
+    \draw[arr] (cm)      -- (wkr-dep);
+    \draw[arr] (secret)  -- (rmq-dep);
+    \draw[arr] (secret)  -- (wkr-dep);
+  \end{tikzpicture}
+  \caption{Kubernetes deployment diagram: Flask web Deployment behind a Service,
+           RabbitMQ StatefulSet with headless Service, Celery worker Deployment,
+           shared PersistentVolumeClaim for model files, ConfigMap and Secret for
+           configuration and credentials.}
+  \label{fig:k8s-diagram}
+\end{figure}
+
+\subsubsection*{5. Summary}
+
+Task 4 completed the CI/CD pipeline that started in Task 3. A \texttt{post-receive}
+hook in the bare Git repository on the production server handles deployment
+automatically. The steps are simple: train a new model, copy the files to the local
+Git folder, commit, and push. The hook on the production server does the rest.
+This needs no extra tools beyond Git and SSH. It works well with the infrastructure
+set up by Ansible in Task 3. The result is a fast, repeatable path from model
+training to live deployment.
+
+% =============================================================================
+\begin{appendices}
+\section{Code Files}
+\label{app:code}
+% =============================================================================
+
+\subsection{Task 1: CloudInit Configuration (without Docker)}
+
+\lstinputlisting[style=yaml, caption={cloud-cfg.txt -- single server without Docker}]{../model_serving/openstack-client/single_node_without_docker_client/cloud-cfg.txt}
+
+\subsection{Task 2: CloudInit Configuration (with Docker)}
+
+\lstinputlisting[style=yaml, caption={cloud-cfg.txt -- single server with Docker}]{../model_serving/openstack-client/single_node_with_docker_client/cloud-cfg.txt}
+
+\subsection{Task 2: Docker Compose File}
+
+\lstinputlisting[style=yaml, caption={docker-compose.yml -- production server}]{../model_serving/single_server_with_docker/production_server/docker-compose.yml}
+
+\subsection{Task 3: Production Server CloudInit}
+
+\lstinputlisting[style=yaml, caption={prod-cloud-cfg.txt}]{../model_serving/openstack-client/single_node_with_docker_ansible_client/prod-cloud-cfg.txt}
+
+\subsection{Task 3: Development Server CloudInit}
+
+\lstinputlisting[style=yaml, caption={dev-cloud-cfg.txt}]{../model_serving/openstack-client/single_node_with_docker_ansible_client/dev-cloud-cfg.txt}
+
+\subsection{Task 3: Ansible Playbook}
+
+\lstinputlisting[style=yaml, caption={configuration.yml}]{../model_serving/openstack-client/single_node_with_docker_ansible_client/configuration.yml}
+
+\subsection{Task 4: Neural Network Training Script}
+
+\lstinputlisting[style=python, caption={neural\_net.py}]{../model_serving/ci_cd/development_server/neural_net.py}
+
+\end{appendices}
+% =============================================================================
+\end{document}
+
