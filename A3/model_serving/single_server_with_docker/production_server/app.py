@@ -13,7 +13,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    return '<h1>Task 2: Welcome to the Machine Learning Course.</h1>'
+    return '<h1>Task 2: Welcome to the Machine Learning Course. Running in docker.</h1>'
 
 @app.route("/accuracy", methods=['POST', 'GET'])
 def accuracy():

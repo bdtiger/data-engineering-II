@@ -391,15 +391,15 @@ extra workers.
 \begin{figure}[h!]
   \centering
   \includegraphics[width=\textwidth]{figure/task-2-docker-ps.png}
-  \caption{\texttt{docker ps} output after scaling to three Celery workers.}
+  \caption{\texttt{docker ps} output before scaling up the workers. The web service, RabbitMQ, and one worker are running.}
   \label{fig:task2-docker-ps}
 \end{figure}
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[width=\textwidth]{figure/task-2-predictions.png}
-  \caption{Predictions page served by the Dockerised production server.}
-  \label{fig:task2-predictions}
+  \includegraphics[width=\textwidth]{figure/task-2-docker-ps-scaled.png}
+  \caption{\texttt{docker ps} output after scaling up to three Celery workers. The web service, RabbitMQ, and three workers are running.}
+  \label{fig:task2-docker-ps-scaled}
 \end{figure}
 
 \subsection{Questions}
