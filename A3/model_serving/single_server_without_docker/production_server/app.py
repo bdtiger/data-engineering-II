@@ -13,14 +13,14 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    return '<h1>Welcome to the Machine Learning Course. This is the production without Docker.</h1>'
+    return '<h1>Task 1: Welcome to the Machine Learning Course. This is the production without Docker.</h1>'
 
 @app.route("/accuracy", methods=['POST', 'GET'])
 def accuracy():
     if request.method == 'POST':
         r = get_accuracy.delay()
         a = r.get()
-        return '<h1>The accuracy is {}</h1>'.format(a)
+        return '<h1>Task 1: The accuracy is {}</h1>'.format(a)
 
     return '''<form method="POST">
     <input type="submit">

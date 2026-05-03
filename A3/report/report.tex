@@ -144,15 +144,15 @@
 
 \subsection{Overview}
 
-In this task, a machine learning model serving application was deployed on a single
+In this task, I deployed a machine learning model serving application on a single
 virtual machine. CloudInit handled the dynamic contextualization. The application
 has three parts: a Flask web frontend, a Celery worker, and a RabbitMQ message
 broker. The model is a Keras/TensorFlow neural network trained on the Pima Indians
 Diabetes dataset.
 
-The OpenStack Python API was used from a client VM to automate the deployment.
-CloudInit installed all software and started all services at first boot. No manual
-login to the production server was needed.
+I used the OpenStack Python API from a client VM to automate the deployment.
+CloudInit installed all software and started all services at first boot. I did not
+need to log in to the production server manually.
 
 \subsection{Application Architecture}
 
@@ -204,32 +204,32 @@ runcmd:
 
 \subsection{Starting the Production VM}
 
-On the client VM, the OpenStack RC file was sourced and the OpenStack Python
-libraries were installed. Then the following command was run:
+On the client VM, I sourced the OpenStack RC file and installed the OpenStack Python
+libraries. Then I ran the following command:
 
 \begin{lstlisting}[style=shell, caption={Starting the production VM from the client}]
 python3 start_instance.py
 \end{lstlisting}
 
-The script reads credentials from the environment, creates the VM with the
-CloudInit user-data, and waits until the instance status is \texttt{ACTIVE}.
-After a floating IP is attached, the application is reachable at:
+The script read credentials from the environment, created the VM with the
+CloudInit user-data, and waited until the instance status was \texttt{ACTIVE}.
+After I attached a floating IP, the application was reachable at:
 
 \begin{itemize}[leftmargin=1.5cm]
-  \item Welcome page: \texttt{http://<PRODUCTION-SERVER-IP>:5100}
-  \item Predictions page: \texttt{http://<PRODUCTION-SERVER-IP>:5100/predictions}
+  \item Welcome page: \texttt{http://130.238.27.96:5100}
+  \item Predictions page: \texttt{http://130.238.27.96:5100/predictions}
 \end{itemize}
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[width=\textwidth]{task-1-welcome.png}
+  \includegraphics[width=\textwidth]{figure/task-1-welcome.png}
   \caption{Welcome page of the Flask application running on the production server.}
   \label{fig:task1-welcome}
 \end{figure}
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[width=\textwidth]{task-1-predictions.png}
+  \includegraphics[width=\textwidth]{figure/task-1-predictions.png}
   \caption{Predictions page showing diabetes prediction results returned by the Celery worker.}
   \label{fig:task1-predictions}
 \end{figure}
@@ -274,16 +274,15 @@ from that snapshot and skips the \texttt{apt install} step entirely.
 
 \subsubsection*{4. Summary}
 
-Task 1 showed how CloudInit can fully automate the setup of a model serving
+In Task 1, I showed how CloudInit can fully automate the setup of a model serving
 application on a new VM. The \texttt{cloud-cfg.txt} file did everything: it updated
 the system, installed Python and RabbitMQ, cloned the code, and started all three
-services in the right order. The OpenStack Python API started the whole process from
-the client VM. No manual login to the production server was needed. The prediction
-service was accessible over HTTP after deployment. The main problems with this
-approach are slow boot time, no isolation, no automatic restart, and no easy
-scaling. Task 2 addresses these problems by using Docker containers.
-
-\newpage
+services in the right order. I used the OpenStack Python API to start the whole
+process from the client VM without needing to log in to the production server
+manually. The prediction service was accessible over HTTP after deployment. The
+main problems with this approach are slow boot time, no isolation, no automatic
+restart, and no easy scaling. Task 2 addresses these problems by using Docker
+containers.
 
 % =============================================================================
 \section{Task 2: Single Server Deployment with Docker Containers}
@@ -391,14 +390,14 @@ extra workers.
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[width=\textwidth]{task-2-docker-ps.png}
+  \includegraphics[width=\textwidth]{figure/task-2-docker-ps.png}
   \caption{\texttt{docker ps} output after scaling to three Celery workers.}
   \label{fig:task2-docker-ps}
 \end{figure}
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[width=\textwidth]{task-2-predictions.png}
+  \includegraphics[width=\textwidth]{figure/task-2-predictions.png}
   \caption{Predictions page served by the Dockerised production server.}
   \label{fig:task2-predictions}
 \end{figure}
@@ -559,14 +558,14 @@ ansible-playbook configuration.yml \
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[width=\textwidth]{task-3-ansible-output.png}
+  \includegraphics[width=\textwidth]{figure/task-3-ansible-output.png}
   \caption{Ansible playbook completing successfully for both the production and development servers.}
   \label{fig:task3-ansible}
 \end{figure}
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[width=\textwidth]{task-3-predictions.png}
+  \includegraphics[width=\textwidth]{figure/task-3-predictions.png}
   \caption{Predictions page of the application deployed to the production server via Ansible.}
   \label{fig:task3-predictions}
 \end{figure}
@@ -702,14 +701,14 @@ To 192.168.x.x:/home/appuser/my_project
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[width=\textwidth]{task-4-git-push.png}
+  \includegraphics[width=\textwidth]{figure/task-4-git-push.png}
   \caption{Output of \texttt{git push production master} showing the post-receive hook deploying the updated model.}
   \label{fig:task4-push}
 \end{figure}
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[width=\textwidth]{task-4-updated-predictions.png}
+  \includegraphics[width=\textwidth]{figure/task-4-updated-predictions.png}
   \caption{Predictions page reflecting the updated model after the CI/CD push.}
   \label{fig:task4-predictions}
 \end{figure}
