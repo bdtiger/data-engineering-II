@@ -11,7 +11,7 @@ from  novaclient import client
 import keystoneclient.v3.client as ksclient
 from keystoneauth1 import loading
 from keystoneauth1 import session
-from constants import FLAVOR, PRIVATE_NET, IMAGE_NAME
+from constants import FLAVOR, PRIVATE_NET, IMAGE_NAME, KEY_NAME
 
 flavor = FLAVOR
 private_net = PRIVATE_NET
@@ -62,8 +62,8 @@ else:
 secgroups = ['default']
 
 print ("Creating instances ... ")
-instance_prod = nova.servers.create(name="prod_server_with_docker_"+str(identifier), image=image, flavor=flavor, key_name='<KEY-NAME>',userdata=userdata_prod, nics=nics,security_groups=secgroups)
-instance_dev = nova.servers.create(name="dev_server_"+str(identifier), image=image, flavor=flavor, key_name='<KEY-NAME>',userdata=userdata_dev, nics=nics,security_groups=secgroups)
+instance_prod = nova.servers.create(name="arnab_prod_server_with_docker_"+str(identifier), image=image, flavor=flavor, key_name=KEY_NAME,userdata=userdata_prod, nics=nics,security_groups=secgroups)
+instance_dev = nova.servers.create(name="arnab_dev_server_with_docker_"+str(identifier), image=image, flavor=flavor, key_name=KEY_NAME,userdata=userdata_dev, nics=nics,security_groups=secgroups)
 inst_status_prod = instance_prod.status
 inst_status_dev = instance_dev.status
 
