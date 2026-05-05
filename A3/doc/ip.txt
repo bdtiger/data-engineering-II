@@ -1,0 +1,3 @@
+Instance: arnab_dev_server_with_docker_5325 is in BUILD state, sleeping for 5 seconds more...
+Instance: arnab_prod_server_with_docker_5325 is in ACTIVE state ip address: 192.168.2.9
+Instance: arnab_dev_server_with_docker_5325 is in ACTIVE state ip address: 192.168.2.236
