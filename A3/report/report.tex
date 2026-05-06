@@ -477,6 +477,13 @@ replaces the CloudInit-only approach used in Tasks 1 and 2.
         training script.
 \end{itemize}
 
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{figure/deployment-multiple-server-using-ansible.png}
+  \caption{Deployment architecture for Task 3: Client VM managing production and development servers using Ansible.}
+  \label{fig:task3-deployment}
+\end{figure}
+
 \subsection{Questions}
 
 \subsubsection*{1. What is the difference between CloudInit and Ansible?}
@@ -544,6 +551,13 @@ The pipeline uses the same three VMs from Task 3:
   \texttt{Prod bare repo} $\xrightarrow{\text{post-receive hook}}$
   \texttt{/model\_serving/ci\_cd/production\_server}
 \end{center}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=\textwidth]{figure/deployment-to-production-using-git-hook.png}
+  \caption{Deployment pipeline: development server pushes model files to production server via Git, triggering the post-receive hook for automated deployment.}
+  \label{fig:task4-git-hook-pipeline}
+\end{figure}
 
 \subsection{The post-receive Hook}
 
@@ -728,41 +742,5 @@ This needs no extra tools beyond Git and SSH. It works well with the infrastruct
 set up by Ansible in Task 3. The result is a fast, repeatable path from model
 training to live deployment.
 
-% =============================================================================
-\begin{appendices}
-\section{Code Files}
-\label{app:code}
-% =============================================================================
-
-\subsection{Task 1: CloudInit Configuration (without Docker)}
-
-\lstinputlisting[style=yaml, caption={cloud-cfg.txt -- single server without Docker}]{../model_serving/openstack-client/single_node_without_docker_client/cloud-cfg.txt}
-
-\subsection{Task 2: CloudInit Configuration (with Docker)}
-
-\lstinputlisting[style=yaml, caption={cloud-cfg.txt -- single server with Docker}]{../model_serving/openstack-client/single_node_with_docker_client/cloud-cfg.txt}
-
-\subsection{Task 2: Docker Compose File}
-
-\lstinputlisting[style=yaml, caption={docker-compose.yml -- production server}]{../model_serving/single_server_with_docker/production_server/docker-compose.yml}
-
-\subsection{Task 3: Production Server CloudInit}
-
-\lstinputlisting[style=yaml, caption={prod-cloud-cfg.txt}]{../model_serving/openstack-client/single_node_with_docker_ansible_client/prod-cloud-cfg.txt}
-
-\subsection{Task 3: Development Server CloudInit}
-
-\lstinputlisting[style=yaml, caption={dev-cloud-cfg.txt}]{../model_serving/openstack-client/single_node_with_docker_ansible_client/dev-cloud-cfg.txt}
-
-\subsection{Task 3: Ansible Playbook}
-
-\lstinputlisting[style=yaml, caption={configuration.yml}]{../model_serving/openstack-client/single_node_with_docker_ansible_client/configuration.yml}
-
-\subsection{Task 4: Neural Network Training Script}
-
-\lstinputlisting[style=python, caption={neural\_net.py}]{../model_serving/ci_cd/development_server/neural_net.py}
-
-\end{appendices}
-% =============================================================================
 \end{document}
 

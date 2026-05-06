@@ -1,7 +1,8 @@
-Instance: arnab_prod_server_with_docker_5654 is in ACTIVE state ip address: 192.168.2.96
-Instance: arnab_dev_server_with_docker_5654 is in ACTIVE state ip address: 192.168.2.186
-
-
+Instance: arnab_prod_server_with_docker_8518 is in ACTIVE state ip address: 192.168.2.140
+Instance: arnab_dev_server_with_docker_8518 is in ACTIVE state ip address: 192.168.2.178
 export ANSIBLE_HOST_KEY_CHECKING=False && ansible-playbook configuration.yml --private-key=/home/ubuntu/cluster-keys/cluster-key
 
-git remote add production appuser@192.168.2.96:/home/appuser/my_project
+git remote add production appuser@192.168.2.140:/home/appuser/my_project
+
+ssh -i /home/ubuntu/cluster-keys/cluster-key appuser@192.168.2.140
+ssh -i /home/ubuntu/cluster-keys/cluster-key appuser@192.168.2.178
