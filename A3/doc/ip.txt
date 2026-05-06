@@ -1,3 +1,7 @@
-Instance: arnab_dev_server_with_docker_5325 is in BUILD state, sleeping for 5 seconds more...
-Instance: arnab_prod_server_with_docker_5325 is in ACTIVE state ip address: 192.168.2.9
-Instance: arnab_dev_server_with_docker_5325 is in ACTIVE state ip address: 192.168.2.236
+Instance: arnab_prod_server_with_docker_5654 is in ACTIVE state ip address: 192.168.2.96
+Instance: arnab_dev_server_with_docker_5654 is in ACTIVE state ip address: 192.168.2.186
+
+
+export ANSIBLE_HOST_KEY_CHECKING=False && ansible-playbook configuration.yml --private-key=/home/ubuntu/cluster-keys/cluster-key
+
+git remote add production appuser@192.168.2.96:/home/appuser/my_project
