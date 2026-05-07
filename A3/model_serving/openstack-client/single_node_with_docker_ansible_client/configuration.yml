@@ -24,7 +24,17 @@
      git:
       repo: 'https://github.com/sztoor/model_serving.git'
       dest: /model_serving 
-      
+
+   - name: Copy docker-compose override to pin RabbitMQ version (avoids 4.x transient_nonexcl_queues error)
+     become: true
+     copy:
+      dest: /model_serving/ci_cd/production_server/docker-compose.override.yml
+      content: |
+        version: "3"
+        services:
+          rabbit:
+            image: rabbitmq:3.12-management
+
    - name: Change ownership of a directory
      become: true
      file:

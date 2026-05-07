@@ -306,6 +306,40 @@ services:
 - ✅ Isolation: Each service has its own filesystem, processes
 - ✅ Reproducibility: Same `docker-compose.yml` works everywhere
 
+### How Code Gets Into the Container (`target: /app`)
+
+`/app` is created **inside the container**, not on the VM. It happens in two steps:
+
+**Step 1 — Build time** (`docker compose up` triggers `build: context: .`):
+```dockerfile
+WORKDIR /app/   ← Docker creates /app inside the container image
+COPY requirements.txt ./
+RUN pip install -r requirements.txt
+```
+
+**Step 2 — Runtime** (container starts, bind mount kicks in):
+```yaml
+volumes:
+  - type: bind
+    source: .       # host VM path: /model_serving/ci_cd/production_server/
+    target: /app    # overlaid on top of /app inside the container
+```
+
+The bind mount **overlays** the host directory onto `/app` inside the container. The container sees all files (`app.py`, `workerA.py`, `model.h5`, etc.) at `/app/` — but they physically live on the VM's filesystem:
+
+```
+VM filesystem                         Container filesystem
+──────────────────────────────        ────────────────────
+/model_serving/                       /app/
+  ci_cd/                         →      app.py
+    production_server/                   workerA.py
+      app.py                             model.h5
+      workerA.py                         requirements.txt
+      model.h5                           ...
+```
+
+> Both `web` and `worker_1` mount the same host directory, so they share the same code and model files.
+
 ---
 
 ## Task 3: CloudInit + Ansible
@@ -539,6 +573,39 @@ devserver ansible_connection=ssh ansible_user=appuser
 │     - Dev: Ready for development                    │
 └─────────────────────────────────────────────────────┘
 ```
+
+### Full Ansible Deployment Flow (Detailed)
+
+```
+Your local machine
+    │
+    ├── push code changes → your GitHub repo
+    │
+    └── (on client VM) python start_instances.py
+            │
+            ├── creates production VM  (bare, no code)
+            └── creates development VM (bare, no code)
+
+Client VM
+    │
+    └── ansible-playbook configuration.yml
+            │
+            ├── [hosts: all]
+            │     ├── apt update
+            │     ├── git clone https://github.com/sztoor/model_serving.git → /model_serving
+            │     └── copy docker-compose.override.yml → /model_serving/ci_cd/production_server/
+            │
+            ├── [hosts: prodserver]
+            │     ├── install Docker
+            │     └── docker compose up -d  ← starts web + rabbit + worker_1
+            │
+            └── [hosts: devserver]
+                  └── install ML packages (tensorflow, keras, etc.)
+```
+
+> **Important**: The git repo being cloned is `https://github.com/sztoor/model_serving.git` (the external repo hardcoded in `configuration.yml`), **not your own repo**. If you want your code changes to be deployed, either:
+> - Update that external repo, or
+> - Change the `repo:` URL in `configuration.yml` to point to your own fork
 
 ---
 
