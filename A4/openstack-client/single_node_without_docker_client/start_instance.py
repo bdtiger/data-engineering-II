@@ -49,7 +49,8 @@ else:
 #print(os.getcwd() + "\n")
 cfg_file_path =  os.getcwd()+'/cloud-cfg.txt'
 if os.path.isfile(cfg_file_path):
-    userdata = open(cfg_file_path)
+    with open(cfg_file_path) as f:
+        userdata = f.read()
 else:
     sys.exit("cloud-cfg.txt is not in current working directory")
 
@@ -66,7 +67,8 @@ instances = []
 for vm_name in vm_names:
     instance = nova.servers.create(
         name=vm_name, 
-        image=image, flavor=flavor, 
+        image=image, 
+        flavor=flavor, 
         key_name='de1-course-snic-key',
         userdata=userdata, 
         nics=nics,
