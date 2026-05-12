@@ -6,7 +6,7 @@ users:
     home: /home/appuser
     shell: /bin/bash
     ssh_authorized_keys:
-      - ssh-rsa AAAA...  # paste your cluster-key.pub from A3
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDVLDjtLkgIroz+OsqLiL+2kcg/GjO4Y4ar9nZnVNqke/bwzuz9FUqM4tNOBaq99XhPXXeh1up5Z6HX1v7NwRBUE4pZT1Vd9JSatoTOmR7CB3De6g3JqFIJus1YouhkKkQg3OJReq9X5HH2zn206x9iSWL/7axoFSI10niEn7RsUBC9C1M4EYpxh3dH3TD0vOWqdwbg9AHV9ivr+DM5tKJ23YFoWEgOzO1/HOLXvj/B2cjMyLKaH6/lhgEsvQF3x/BUsvYRc0Hi4hXHWO0C5/5IoJo0hglo9p6QmrnXf2owf6v8swIu+wFG6QVlFawDOXmA9ZR5Fmb5P224X4dEeEX2cPENfD0wWmJrEq9zNLvNd6u1U7TVGwwCItowWoi6Cv1HAG947dQwkK7HxDb8uU1w1wjIfLYef3+YLFQPGaMjuayZBoLb7iO6zQhfVE3QrxFauvffZhXTW8b6jgxVnQ5mRs7qvLPJf+YmgBwRCwRsDzhjLGe9CtYoBrAt67V2PwU= ubuntu@arnab-a4-client-vm
 
 apt_update: true
 apt_upgrade: true

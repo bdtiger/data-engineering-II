@@ -115,6 +115,18 @@ so Ansible can reach the others via the internal network.
 
 Reuse the Ansible setup from Assignment 3.
 
+Generate cluster key with name:
+```
+/home/ubuntu/cluster-keys/cluster-key
+```
+
+
+```
+mkdir -p /home/ubuntu/cluster-keys
+ssh-keygen -t rsa
+```
+
+
 ### Add Ray VMs to the Ansible hosts file
 
 ```bash
