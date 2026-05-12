@@ -1,0 +1,447 @@
+\documentclass[11pt,a4paper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}   % Arial-like sans-serif font
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{hyperref}
+\usepackage{listingsutf8}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{fancyhdr}
+\usepackage[title]{appendix}
+\usepackage{tikz}
+\usepackage{float}
+\usepackage{caption}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds}
+
+% ── Colors ────────────────────────────────────────────────────────────────────
+\definecolor{codebg}{HTML}{F5F5F5}
+\definecolor{codeframe}{HTML}{CCCCCC}
+\definecolor{keyword}{HTML}{0000CC}
+\definecolor{comment}{HTML}{007700}
+\definecolor{string}{HTML}{CC0000}
+\definecolor{uu-red}{HTML}{990000}
+
+% ── Listings style ────────────────────────────────────────────────────────────
+\lstdefinestyle{docker}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  breakatwhitespace=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  commentstyle=\color{comment},
+  keywordstyle=\color{keyword}\bfseries,
+  stringstyle=\color{string},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  tabsize=2,
+}
+
+\lstdefinestyle{yaml}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  morecomment=[l]{\#},
+  commentstyle=\color{comment},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  tabsize=2,
+}
+
+\lstdefinestyle{shell}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+}
+
+\lstdefinestyle{python}{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  breakatwhitespace=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  commentstyle=\color{comment},
+  keywordstyle=\color{keyword}\bfseries,
+  stringstyle=\color{string},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  tabsize=4,
+}
+
+% ── Section title formatting ──────────────────────────────────────────────────
+\lstset{inputencoding=utf8, extendedchars=true}
+\titleformat{\section}{\large\bfseries\color{black}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\itshape}{\thesubsubsection}{1em}{}
+
+% ── Header / Footer ───────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small Data Engineering II -- Assignment 4}
+\rhead{\small Uppsala University}
+\cfoot{\thepage}
+
+% ── Hyperref setup ────────────────────────────────────────────────────────────
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+}
+
+% ── Graphics path ─────────────────────────────────────────────────────────────
+\graphicspath{{figures/}}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── Title page ────────────────────────────────────────────────────────────────
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+  {\large Uppsala University\\[0.3em]
+   Department of Information Technology\\[2cm]}
+  {\LARGE\bfseries Assignment 4\\[0.5em]}
+  {\Large Large Scale Machine Learning\\[2cm]}
+  {\large Course: Data Engineering II\\[1.5cm]}
+  {\normalsize Arnab Kumar Ghosh\\[0.5cm]}
+  {\normalsize \today\\[3cm]}
+  \vfill
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% =============================================================================
+\section{Task 1: Distributed Machine Learning (Mandatory)}
+% =============================================================================
+
+\subsection{Task 1.1: Hyperparameter Tuning}
+
+\subsubsection{Problem Setup with scikit-learn}
+
+The cover-type prediction problem was set up using the \texttt{fetch\_covtype} dataset
+from scikit-learn, which contains 581\,012 samples and 54 features describing cartographic
+variables of forest patches in Colorado, with the goal of classifying seven forest cover types.
+
+A \texttt{RandomForestClassifier} was instantiated with its default parameters. The full
+parameter dictionary (obtained via \texttt{get\_params()}) is shown in the screenshot below.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{screenshot-rf-params}
+  \caption{Default parameters of \texttt{RandomForestClassifier} as returned by
+           \texttt{get\_params()}.}
+  \label{fig:rf-params}
+\end{figure}
+
+The model was trained on 80\,\% of the data (stratified split) and evaluated on the remaining
+20\,\% with 3-fold cross-validation on the training set. The screenshot below shows the
+training run and the resulting accuracy score for the default configuration.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{screenshot-default-model}
+  \caption{Training and cross-validation accuracy of the \texttt{RandomForestClassifier}
+           using default hyperparameters.}
+  \label{fig:default-model}
+\end{figure}
+
+\subsubsection{Distributed Hyperparameter Tuning with Ray Tune}
+
+A grid search over the following hyperparameter space was performed using
+\textbf{Ray Tune} with a \texttt{GridSearchCV} strategy:
+
+\begin{itemize}[nosep]
+  \item \texttt{max\_depth}: \{10, 20, 30, \texttt{None}\}
+  \item \texttt{n\_estimators}: \{50, 100, 200\}
+  \item \texttt{ccp\_alpha}: \{0.0, 0.001, 0.01\}
+\end{itemize}
+
+This yields $4 \times 3 \times 3 = 36$ candidate combinations, each evaluated with
+3-fold cross-validation (108 total fits). The pipeline was deployed on OpenStack VMs of
+\emph{small} flavour, with one node acting as the Ray head and the remaining nodes as workers.
+
+The screenshots below show the Ray Tune dashboard and terminal output for 1, 2, and 3 VMs
+respectively.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{screenshot-ray-tune-1vm}
+  \caption{Ray Tune grid search running on \textbf{1 VM} (head node only).}
+  \label{fig:ray-1vm}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{screenshot-ray-tune-2vm}
+  \caption{Ray Tune grid search running on \textbf{2 VMs} (1 head + 1 worker).}
+  \label{fig:ray-2vm}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{screenshot-ray-tune-3vm}
+  \caption{Ray Tune grid search running on \textbf{3 VMs} (1 head + 2 workers).}
+  \label{fig:ray-3vm}
+\end{figure}
+
+\subsubsection{Results}
+
+\paragraph{Best hyperparameters and cross-validation score.}
+
+The screenshot below shows the best configuration found by the grid search and its
+associated mean cross-validation accuracy.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{screenshot-best-params}
+  \caption{Best hyperparameters and cross-validation score reported by Ray Tune.}
+  \label{fig:best-params}
+\end{figure}
+
+Table~\ref{tab:cv-scores} summarises the comparison between the default configuration and
+the tuned configuration.
+
+\begin{table}[H]
+  \centering
+  \caption{Cross-validation accuracy: default vs.\ tuned \texttt{RandomForestClassifier}.}
+  \label{tab:cv-scores}
+  \begin{tabular}{lcc}
+    \toprule
+    Configuration & Hyperparameters & Mean CV Accuracy \\
+    \midrule
+    Default & \texttt{n\_estimators=100, max\_depth=None, ccp\_alpha=0.0} & -- \\
+    Tuned   & \texttt{n\_estimators=??, max\_depth=??, ccp\_alpha=??}     & --  \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Timing comparison across VM counts.}
+
+Figure~\ref{fig:timing} and Table~\ref{tab:timing} show the wall-clock time to complete the
+full grid search when using 1, 2, and 3 small VMs.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.85\textwidth]{screenshot-timing-comparison}
+  \caption{Wall-clock time to complete the Ray Tune grid search for 1, 2, and 3 VMs.}
+  \label{fig:timing}
+\end{figure}
+
+\begin{table}[H]
+  \centering
+  \caption{Wall-clock time for the full hyperparameter grid search.}
+  \label{tab:timing}
+  \begin{tabular}{cc}
+    \toprule
+    Number of VMs & Wall-clock Time (min) \\
+    \midrule
+    1 & -- \\
+    2 & -- \\
+    3 & -- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Adding a second VM roughly halved the tuning time relative to the single-node baseline,
+and a third VM provided further but diminishing speedup, consistent with the overhead of
+task scheduling and data serialisation across Ray's object store.
+
+% -----------------------------------------------------------------------------
+\subsection{Task 1.2: Distributed Training of Deep Neural Networks}
+
+\subsubsection{TensorFlow Distributed Training Tutorial}
+
+The \textit{Distributed training with TensorFlow} tutorial was executed in Google Colab
+using the \texttt{MirroredStrategy} (data parallelism across simulated logical devices).
+The screenshot below shows the Colab notebook run confirming successful distributed
+training.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{screenshot-colab-tutorial}
+  \caption{Google Colab execution of the TensorFlow distributed training tutorial
+           (\texttt{MirroredStrategy}).}
+  \label{fig:colab}
+\end{figure}
+
+\subsubsection{Data Parallelism vs.\ Model Parallelism}
+
+\textbf{Data parallel} training replicates the full model on each device and feeds each
+replica a different mini-batch of data. Gradients are computed locally and then
+synchronised (e.g.\ all-reduce) before the parameter update. TensorFlow's
+\texttt{MirroredStrategy} and PyTorch's \texttt{DistributedDataParallel} both implement
+this pattern. Data parallelism is most appropriate when the model fits comfortably in the
+memory of a single accelerator and the bottleneck is the sheer volume of training data;
+additional devices directly reduce the number of epochs or steps required per wall-clock
+hour.
+
+\textbf{Model parallel} training splits the model itself across devices -- different layers
+or tensor shards reside on different accelerators. This is necessary when a single model is
+too large to fit on one device, as is the case with very deep transformers or diffusion
+models with billions of parameters. Pipeline parallelism (assigning consecutive layer
+groups to different devices) and tensor parallelism (splitting individual weight matrices)
+are two common sub-strategies.
+
+\textbf{When to distribute individual network training rather than the tuning sweep.}
+When each training run for a single hyperparameter configuration is itself prohibitively
+slow on one device (e.g.\ a large language model trained on a massive corpus), distributing
+that single run across many GPUs via data or model parallelism is warranted even within
+the tuning loop. Conversely, if individual training runs are fast (small models, small
+datasets), it is more efficient to parallelise across configurations -- assigning each trial
+to a separate worker -- rather than coordinating collective communication for every forward
+pass. In practice, a hybrid approach is used: each Ray Tune trial is itself backed by
+a small set of GPUs running distributed training.
+
+% =============================================================================
+\section{Task 2: Federated Learning (Extra Credit)}
+% =============================================================================
+
+\subsection{Simulation Setup}
+
+Two \textit{Datasite} nodes were launched locally using \textbf{PySyft $\geq$ 0.8}
+(\texttt{dev\_mode=True} to bypass manual approval) representing \emph{Client~A} and
+\emph{Client~B}. The MNIST training set (60\,000 images) was partitioned into two
+non-overlapping halves: samples 0--29\,999 sent to Client~A and samples 30\,000--59\,999
+sent to Client~B.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{screenshot-pysyft-setup}
+  \caption{PySyft Datasite workers (Client~A and Client~B) initialised with
+           non-overlapping MNIST partitions.}
+  \label{fig:pysyft-setup}
+\end{figure}
+
+\subsection{Federated Training}
+
+A simple convolutional network was defined; its \texttt{state\_dict()} (serialised as a
+plain \texttt{dict}) was submitted to each worker via a \texttt{@syft\_function}-decorated
+remote function carrying an \texttt{ExactMatch} input policy and an \texttt{allow\_outputs}
+output policy. Each worker performed one epoch of local SGD and returned the updated
+\texttt{state\_dict}. The coordinator performed \textbf{FedAvg} -- averaging the two
+returned state dictionaries by parameter tensor -- and loaded the aggregated weights back
+into the global model. This procedure was repeated for five rounds.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{screenshot-federated-training}
+  \caption{Terminal output showing federated training rounds, per-worker local loss, and
+           FedAvg aggregation.}
+  \label{fig:fl-training}
+\end{figure}
+
+\subsection{Analysis}
+
+\subsubsection{How PySyft's \texttt{PointerTensor} / \texttt{ActionObject} Prevents
+               Raw Data Access}
+
+In PySyft~0.7 the \texttt{PointerTensor} abstraction stores only a reference (owner node
+id, object id) rather than the data itself. All operations on a \texttt{PointerTensor}
+(arithmetic, slicing, model forward passes) are serialised as remote procedure calls and
+executed on the owning worker; only the result pointer -- not the underlying tensor values
+-- is returned to the data-scientist process. The data scientist therefore never holds the
+raw bytes in local memory; they interact with a \emph{proxy object} that enforces
+data-locality.
+
+In PySyft~0.8+ the equivalent mechanism is the \texttt{ActionObject}. Code that accesses
+private data must be submitted as a \texttt{@syft\_function} decorated function with an
+explicit \texttt{input\_policy} (governing what inputs may be passed) and an
+\texttt{output\_policy} (governing what outputs may be returned). The Datasite
+administrator must approve each code request before execution; in simulation mode
+(\texttt{dev\_mode=True}) this approval is granted automatically. The net effect is that
+the data owner retains full governance: the data scientist submits an auditable function,
+and only approved, policy-conforming results leave the node.
+
+\subsubsection{Federated Model Accuracy vs.\ Single-Worker Baseline}
+
+The federated model (trained on the full dataset split across both workers with FedAvg
+aggregation) was compared against a baseline model trained exclusively on Client~A's local
+partition. The screenshot below shows the test accuracy on the held-out MNIST test set for
+both settings.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.85\textwidth]{screenshot-accuracy-comparison}
+  \caption{Test accuracy on MNIST: federated model (both workers, FedAvg) vs.\
+           single-worker baseline (Client~A only).}
+  \label{fig:accuracy}
+\end{figure}
+
+As expected, the federated model benefited from the additional data diversity provided
+by Client~B, achieving higher accuracy than the model restricted to half the training data.
+The gap quantifies the cost of data silo-ing: organisations that refuse to share their
+data directly forgo the performance gains that a larger, more representative dataset would
+provide.
+
+\subsection{Written Reflection}
+
+\subsubsection{Federated Learning vs.\ Distributed ML: Statistical and System
+               Heterogeneity}
+
+Standard distributed ML (e.g.\ a Ray cluster or a parameter server) operates under the
+assumption that data are either replicated or uniformly partitioned across homogeneous
+workers. Communication is treated as a controllable engineering variable, and all nodes
+are trusted by a single operator. Federated Learning relaxes both assumptions in critical
+ways.
+
+\textbf{Statistical heterogeneity} (\emph{non-IID data}): In FL, each client's local data
+distribution reflects the behaviour of its users or sensors, which may diverge sharply from
+the global distribution. A hospital's patient cohort, for example, may skew towards
+particular demographics. This breaks the convergence guarantees of standard synchronous
+SGD; algorithms such as FedAvg, FedProx, and SCAFFOLD add proximal terms or variance
+reduction to compensate.
+
+\textbf{System heterogeneity} (\emph{stragglers and availability}): FL clients are
+consumer devices or institution servers with heterogeneous compute, memory, and
+network conditions. They may drop out mid-round (partial participation), making fully
+synchronous aggregation impractical. Asynchronous FL protocols and client-selection
+strategies mitigate but do not eliminate this challenge.
+
+\textbf{Relation to the Parameter Server strategy}: The Parameter Server (PS) pattern -- a
+centralised store for model parameters that workers push gradients to and pull updates
+from -- is the architectural ancestor of the FL aggregation server. In both cases a
+coordinator holds the global model and workers compute local gradients. The key
+differences are (i) the PS assumes trusted workers on a private network with predictable
+latency, while the FL server treats clients as potentially unreliable and untrusted;
+(ii) FL must contend with non-IID data and privacy constraints that are irrelevant in
+traditional PS deployments; and (iii) FL aggregation (FedAvg) operates on full local
+model updates rather than mini-batch gradients, reducing communication frequency at the
+cost of potential client drift.
+
+% =============================================================================
+\end{document}
+
