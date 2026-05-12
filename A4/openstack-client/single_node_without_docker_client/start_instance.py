@@ -1,5 +1,5 @@
 # http://docs.openstack.org/developer/python-novaclient/ref/v2/servers.html
-import time, os, sys,  random
+import time, os, sys, random, re
 import inspect
 from os import environ as env
 from pathlib import Path
@@ -59,7 +59,7 @@ print ("Creating instances ... ")
 # instance = nova.servers.create(name="prod_server_without_docker_"+str(identifier), image=image, key_name='sztoor', flavor=flavor,userdata=userdata, nics=nics,security_groups=secgroups)
 
 
-vm_names = ["arnab-ray-head", "arnab-ray-worker-1", "arnab-ray-worker-2"]
+vm_names = ["arnab-a4-ray-head", "arnab-a4-ray-worker-1", "arnab-a4-ray-worker-2"]
 instances = []
 
 # craeting 3 instances with the same configuration but different names.
@@ -88,4 +88,12 @@ for instance in instances:
         instance = nova.servers.get(instance.id)
         inst_status = instance.status
 
-    print ("Instance: "+ instance.name +" is in " + inst_status + "state")
+    ip_address = None
+    for network in instance.networks[private_net]:
+        if re.match('\d+\.\d+\.\d+\.\d+', network):
+            ip_address = network
+            break
+    if ip_address is None:
+        raise RuntimeError('No IP address assigned!')
+
+    print ("Instance: "+ instance.name +" is in " + inst_status + " state" + " ip address: "+ ip_address)
