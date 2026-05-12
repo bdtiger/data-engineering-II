@@ -1,0 +1,10 @@
+- hosts: rayhead
+  become: false
+  tasks:
+    - name: Check Ray cluster status
+      shell: ray status
+      register: ray_status
+
+    - name: Print cluster status
+      debug:
+        msg: "{{ ray_status.stdout }}"

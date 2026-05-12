@@ -1,0 +1,20 @@
+- hosts: raycluster
+  become: true
+  tasks:
+    - name: Update apt
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install pip
+      apt:
+        pkg: python3-pip
+        state: latest
+
+    - name: Install Ray and scikit-learn
+      pip:
+        name:
+          - "ray[tune]"
+          - scikit-learn
+          - numpy
+        executable: pip3

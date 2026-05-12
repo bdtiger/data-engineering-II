@@ -1,0 +1,27 @@
+- hosts: rayhead
+  become: false
+  tasks:
+    - name: Stop any existing Ray instance
+      shell: ray stop
+      ignore_errors: yes
+
+    - name: Start Ray head
+      shell: ray start --head --port=6379 --dashboard-host=0.0.0.0
+
+    - name: Wait for head to be ready
+      pause:
+        seconds: 5
+
+- hosts: rayworkers
+  become: false
+  tasks:
+    - name: Stop any existing Ray instance
+      shell: ray stop
+      ignore_errors: yes
+
+    - name: Connect workers to head
+      shell: "ray start --address='{{ hostvars['rayhead']['ansible_host'] }}:6379'"
+
+    - name: Wait for workers to connect
+      pause:
+        seconds: 5

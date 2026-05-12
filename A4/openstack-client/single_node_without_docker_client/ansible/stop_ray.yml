@@ -1,0 +1,6 @@
+- hosts: raycluster
+  become: false
+  tasks:
+    - name: Stop Ray on all nodes
+      shell: ray stop
+      ignore_errors: yes
