@@ -1,5 +1,5 @@
-Instance: arnab-a4-ray-head is in ACTIVE state ip address: 192.168.2.201
+Instance: arnab-a4-ray-head is in ACTIVE state ip address: 192.168.2.42
 waiting for 10 seconds.. 
-Instance: arnab-a4-ray-worker-1 is in ACTIVE state ip address: 192.168.2.213
+Instance: arnab-a4-ray-worker-1 is in ACTIVE state ip address: 192.168.2.197
 waiting for 10 seconds.. 
-Instance: arnab-a4-ray-worker-2 is in ACTIVE state ip address: 192.168.2.83
+Instance: arnab-a4-ray-worker-2 is in ACTIVE state ip address: 192.168.2.254

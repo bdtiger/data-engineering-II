@@ -148,15 +148,24 @@
 \section{Task 1: Distributed Machine Learning (Mandatory)}
 % =============================================================================
 
+\subsection{Infrastructure Setup}
+
+I followed the same process I used in Assignment~3 to provision and configure the VMs.
+I used the OpenStack client scripts to create the VMs on Swedish Science Cloud, and Ansible playbooks
+to configure them and install the required software.
+I modified both the OpenStack client scripts and the Ansible playbooks from my
+Assignment~3 versions to fit this assignment -- specifically, to provision a Ray cluster
+instead of a Docker-based deployment and to install Ray and scikit-learn on each node.
+
 \subsection{Task 1.1: Hyperparameter Tuning}
 
 \subsubsection{Problem Setup with scikit-learn}
 
-The cover-type prediction problem was set up using the \texttt{fetch\_covtype} dataset
+I set up the cover-type prediction problem using the \texttt{fetch\_covtype} dataset
 from scikit-learn, which contains 581\,012 samples and 54 features describing cartographic
 variables of forest patches in Colorado, with the goal of classifying seven forest cover types.
 
-A \texttt{RandomForestClassifier} was instantiated with its default parameters. The full
+I instantiated a \texttt{RandomForestClassifier} with its default parameters. The full
 parameter dictionary (obtained via \texttt{get\_params()}) is shown in the screenshot below.
 
 \begin{figure}[H]
@@ -167,9 +176,20 @@ parameter dictionary (obtained via \texttt{get\_params()}) is shown in the scree
   \label{fig:rf-params}
 \end{figure}
 
-The model was trained on 80\,\% of the data (stratified split) and evaluated on the remaining
-20\,\% with 3-fold cross-validation on the training set. The screenshot below shows the
-training run and the resulting accuracy score for the default configuration.
+The default parameters for the \texttt{RandomForestClassifier} are:
+
+\begin{lstlisting}[language=python, style=python]
+{'bootstrap': True, 'ccp_alpha': 0.0, 'class_weight': None, 'criterion': 'gini', 
+'max_depth': None, 'max_features': 'sqrt', 'max_leaf_nodes': None, 
+'max_samples': None, 'min_impurity_decrease': 0.0, 'min_samples_leaf': 1, 
+'min_samples_split': 2, 'min_weight_fraction_leaf': 0.0, 'monotonic_cst': None, 
+'n_estimators': 100, 'n_jobs': None, 'oob_score': False, 'random_state': 42, 
+'verbose': 0, 'warm_start': False}
+\end{lstlisting}
+
+I evaluated the model using 3-fold cross-validation on the full dataset, obtaining a mean
+accuracy of \textbf{0.6078} in a runtime of approximately 113.47 seconds.
+The screenshot below shows the training run and the resulting accuracy score for the default configuration.
 
 \begin{figure}[H]
   \centering
@@ -441,6 +461,54 @@ latency, while the FL server treats clients as potentially unreliable and untrus
 traditional PS deployments; and (iii) FL aggregation (FedAvg) operates on full local
 model updates rather than mini-batch gradients, reducing communication frequency at the
 cost of potential client drift.
+
+% =============================================================================
+\begin{appendices}
+
+\section{Code Files}
+
+\subsection{scikit-learn-baseline.py}
+
+This script implements the baseline scikit-learn model for distributed machine learning
+using Ray Tune for hyperparameter tuning on the cover-type dataset.
+
+\lstinputlisting[style=python, caption=scikit-learn-baseline.py]{../scikit-learn-baseline.py}
+
+\subsection{OpenStack Client Configuration}
+
+\subsubsection{constants.py}
+
+Configuration constants for OpenStack instance provisioning:
+
+\lstinputlisting[style=python, caption=constants.py]{../openstack-client/constants.py}
+
+\subsubsection{start\_instance.py}
+
+OpenStack Nova client script for provisioning Ray cluster instances:
+
+\lstinputlisting[style=python, caption=start\_instance.py]{../openstack-client/start_instance.py}
+
+\subsection{Ansible Playbooks}
+
+\subsubsection{install\_ray.yml}
+
+Ansible playbook to install Ray and dependencies on cluster nodes:
+
+\lstinputlisting[style=yaml, caption=install\_ray.yml]{../openstack-client/ansible/install_ray.yml}
+
+\subsubsection{start\_ray\_1vm.yml}
+
+Ansible playbook to start Ray head node (single-VM configuration):
+
+\lstinputlisting[style=yaml, caption=start\_ray\_1vm.yml]{../openstack-client/ansible/start_ray_1vm.yml}
+
+\subsubsection{inventory.ini}
+
+Ansible inventory configuration for Ray cluster nodes:
+
+\lstinputlisting[style=shell, caption=inventory.ini]{../openstack-client/ansible/inventory.ini}
+
+\end{appendices}
 
 % =============================================================================
 \end{document}
