@@ -2,12 +2,20 @@
   become: false
   tasks:
     - name: Stop any existing Ray instance
-      shell: ray stop
+      shell: ray stop --force
       ignore_errors: yes
 
     - name: Start Ray head only
-      shell: ray start --head --port=6379 --dashboard-host=0.0.0.0
+      shell: "ray start --head --port=6379 --node-ip-address={{ hostvars['rayhead']['ansible_host'] }} --dashboard-host=0.0.0.0"
 
     - name: Wait for head to be ready
       pause:
         seconds: 5
+
+    - name: Verify Ray started successfully
+      shell: "ray status --address={{ hostvars['rayhead']['ansible_host'] }}:6379"
+      register: ray_status
+
+    - name: Print cluster status
+      debug:
+        msg: "{{ ray_status.stdout }}"

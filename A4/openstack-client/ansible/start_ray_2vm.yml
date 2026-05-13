@@ -6,7 +6,7 @@
       ignore_errors: yes
 
     - name: Start Ray head
-      shell: ray start --head --port=6379 --dashboard-host=0.0.0.0
+      shell: "ray start --head --port=6379 --node-ip-address={{ hostvars['rayhead']['ansible_host'] }} --dashboard-host=0.0.0.0"
 
     - name: Wait for head to be ready
       pause:
@@ -20,8 +20,19 @@
       ignore_errors: yes
 
     - name: Connect worker 1 to head
-      shell: "ray start --address='{{ hostvars['rayhead']['ansible_host'] }}:6379'"
+      shell: "ray start --node-ip-address={{ hostvars['rayworker1']['ansible_host'] }} --address='{{ hostvars['rayhead']['ansible_host'] }}:6379'"
 
     - name: Wait for worker to connect
       pause:
         seconds: 5
+
+- hosts: rayhead
+  become: false
+  tasks:
+    - name: Verify cluster has 2 nodes
+      shell: "ray status --address={{ hostvars['rayhead']['ansible_host'] }}:6379"
+      register: ray_status
+
+    - name: Print cluster status
+      debug:
+        msg: "{{ ray_status.stdout }}"
