@@ -1,17 +1,20 @@
+import os
 import ray
 import pandas as pd
 from ray import tune
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.datasets import fetch_covtype
 from sklearn.model_selection import cross_val_score
 import numpy as np
 import time
 
+DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "covtype.csv")
+
 def load_data():
-    print("Loading dataset...")
-    data = fetch_covtype()
-    X, y = data.data[:20000], data.target[:20000]
-    return X, y
+    print("Loading dataset from local CSV...")
+    df = pd.read_csv(DATA_PATH)
+    y = df["target"].values
+    X = df.drop(columns=["target"]).values
+    return X[:20000], y[:20000]
 
 def train_evaluate(config):
     X, y = load_data()

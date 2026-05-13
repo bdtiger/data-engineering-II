@@ -1,6 +1,5 @@
-import ray
+import os
 import pandas as pd
-from ray import tune
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.datasets import fetch_covtype
 from sklearn.model_selection import cross_val_score
@@ -11,8 +10,14 @@ def main():
     # Load dataset
     print("Loading dataset...")
     data = fetch_covtype()
-    X, y = data.data, data.target  # subset to keep runtime reasonable
+
+    X, y = data.data, data.target
     df = pd.DataFrame(X, columns=data.feature_names)
+    df["target"] = y
+
+    data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "covtype.csv")
+    df.to_csv(data_path, index=False)
+    print(f"Dataset saved to {data_path}")
     print(df.info())
 
     # Baseline with default parameters
