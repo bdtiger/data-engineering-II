@@ -26,7 +26,7 @@ def train_evaluate(config):
     tune.report(mean_accuracy=np.mean(score))
 
 def main():
-    ray.init(address="auto")
+    ray.init()
     print("Ray initialized with resources:", ray.cluster_resources())
     
     # Load dataset
