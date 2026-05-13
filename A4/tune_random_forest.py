@@ -10,7 +10,7 @@ import time
 def load_data():
     print("Loading dataset...")
     data = fetch_covtype()
-    X, y = data.data, data.target 
+    X, y = data.data[:20000], data.target[:20000]
     return X, y
 
 def train_evaluate(config):
