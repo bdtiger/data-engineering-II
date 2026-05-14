@@ -157,6 +157,26 @@ I modified both the OpenStack client scripts and the Ansible playbooks from my
 Assignment~3 versions to fit this assignment -- specifically, to provision a Ray cluster
 instead of a Docker-based deployment and to install Ray and scikit-learn on each node.
 
+One VM was designated the \textbf{head node}. Ray was started on it with:
+
+\begin{lstlisting}[style=shell]
+ray start --head --port=6379 \
+  --node-ip-address=<head-internal-ip> \
+  --dashboard-host=0.0.0.0
+\end{lstlisting}
+
+Each additional VM joined as a \textbf{worker node} by connecting to the head:
+
+\begin{lstlisting}[style=shell]
+ray start --address='<head-internal-ip>:6379' \
+  --node-ip-address=<worker-internal-ip>
+\end{lstlisting}
+
+The tuning script was then executed on the head node, which distributed trials
+across all connected workers via Ray's distributed scheduler and object store.
+A floating IP was attached only to the head node for SSH access; inter-node
+communication used the private network addresses.
+
 \subsection{Task 1.1: Hyperparameter Tuning}
 
 \subsubsection{Problem Setup with scikit-learn}
@@ -164,6 +184,8 @@ instead of a Docker-based deployment and to install Ray and scikit-learn on each
 I set up the cover-type prediction problem using the \texttt{fetch\_covtype} dataset
 from scikit-learn, which contains 581\,012 samples and 54 features describing cartographic
 variables of forest patches in Colorado, with the goal of classifying seven forest cover types.
+
+For the experiment, I downloaded the dataset locally to my client machine and then uploaded it to the Ray head VM through the client VM. Due to memory limits on the VM, I used only the first 20\,000 samples for each experiment. When I tried to run experiments with the full dataset, the process ran out of memory and was killed.
 
 I instantiated a \texttt{RandomForestClassifier} with its default parameters. The full
 parameter dictionary (obtained via \texttt{get\_params()}) is shown in the screenshot below.
@@ -188,7 +210,7 @@ The default parameters for the \texttt{RandomForestClassifier} are:
 \end{lstlisting}
 
 I evaluated the model using 3-fold cross-validation on the full dataset, obtaining a mean
-accuracy of \textbf{0.6078} in a runtime of approximately 113.47 seconds.
+accuracy of \textbf{0.7025} in a runtime of approximately 7.60 seconds.
 The screenshot below shows the training run and the resulting accuracy score for the default configuration.
 
 \begin{figure}[H]
@@ -202,16 +224,16 @@ The screenshot below shows the training run and the resulting accuracy score for
 \subsubsection{Distributed Hyperparameter Tuning with Ray Tune}
 
 A grid search over the following hyperparameter space was performed using
-\textbf{Ray Tune} with a \texttt{GridSearchCV} strategy:
+\textbf{Ray Tune}:
 
 \begin{itemize}[nosep]
-  \item \texttt{max\_depth}: \{10, 20, 30, \texttt{None}\}
-  \item \texttt{n\_estimators}: \{50, 100, 200\}
+  \item \texttt{max\_depth}: \{10, 20, 30\}
+  \item \texttt{n\_estimators}: \{50, 100, 150\}
   \item \texttt{ccp\_alpha}: \{0.0, 0.001, 0.01\}
 \end{itemize}
 
-This yields $4 \times 3 \times 3 = 36$ candidate combinations, each evaluated with
-3-fold cross-validation (108 total fits). The pipeline was deployed on OpenStack VMs of
+This yields $3 \times 3 \times 3 = 27$ candidate combinations, each evaluated with
+3-fold cross-validation (81 total fits). The pipeline was deployed on OpenStack VMs of
 \emph{small} flavour, with one node acting as the Ray head and the remaining nodes as workers.
 
 The screenshots below show the Ray Tune dashboard and terminal output for 1, 2, and 3 VMs
@@ -242,72 +264,81 @@ respectively.
 
 \paragraph{Best hyperparameters and cross-validation score.}
 
-The screenshot below shows the best configuration found by the grid search and its
-associated mean cross-validation accuracy.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.95\textwidth]{screenshot-best-params}
-  \caption{Best hyperparameters and cross-validation score reported by Ray Tune.}
-  \label{fig:best-params}
-\end{figure}
-
-Table~\ref{tab:cv-scores} summarises the comparison between the default configuration and
-the tuned configuration.
+Table~\ref{tab:cv-scores} compares the default configuration against the best
+configuration found by the grid search. The tuned model achieved a mean 3-fold
+cross-validation accuracy of \textbf{0.7038} -- an improvement of approximately
+9.6 percentage points over the default.
 
 \begin{table}[H]
   \centering
   \caption{Cross-validation accuracy: default vs.\ tuned \texttt{RandomForestClassifier}.}
   \label{tab:cv-scores}
-  \begin{tabular}{lcc}
+  \begin{tabular}{lccc}
     \toprule
-    Configuration & Hyperparameters & Mean CV Accuracy \\
+    Configuration & \texttt{max\_depth} & \texttt{n\_estimators} & Mean CV Accuracy \\
     \midrule
-    Default & \texttt{n\_estimators=100, max\_depth=None, ccp\_alpha=0.0} & -- \\
-    Tuned   & \texttt{n\_estimators=??, max\_depth=??, ccp\_alpha=??}     & --  \\
+    Default (\texttt{ccp\_alpha=0.0}) & None  & 100 & 0.7025 \\
+    Tuned   (\texttt{ccp\_alpha=0.0}) & 30    & 150 & \textbf{0.7038} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Table~\ref{tab:top5} lists the top-5 configurations from the grid search.
+All top performers use no pruning (\texttt{ccp\_alpha=0.0}), and accuracy
+increases monotonically with \texttt{max\_depth}.
+
+\begin{table}[H]
+  \centering
+  \caption{Top-5 configurations from the Ray Tune grid search.}
+  \label{tab:top5}
+  \begin{tabular}{ccccc}
+    \toprule
+    Rank & \texttt{max\_depth} & \texttt{n\_estimators} & \texttt{ccp\_alpha} & Mean CV Accuracy \\
+    \midrule
+    1 & 30 & 150 & 0.000 & 0.7038 \\
+    2 & 30 & 100 & 0.000 & 0.7034 \\
+    3 & 20 & 150 & 0.000 & 0.7004 \\
+    4 & 30 &  50 & 0.000 & 0.6999 \\
+    5 & 20 &  50 & 0.000 & 0.6949 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \paragraph{Timing comparison across VM counts.}
 
-Figure~\ref{fig:timing} and Table~\ref{tab:timing} show the wall-clock time to complete the
-full grid search when using 1, 2, and 3 small VMs.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.85\textwidth]{screenshot-timing-comparison}
-  \caption{Wall-clock time to complete the Ray Tune grid search for 1, 2, and 3 VMs.}
-  \label{fig:timing}
-\end{figure}
+Table~\ref{tab:timing} shows the wall-clock time and speedup for the full 27-trial
+grid search when using 1, 2, and 3 small VMs.
 
 \begin{table}[H]
   \centering
-  \caption{Wall-clock time for the full hyperparameter grid search.}
+  \caption{Wall-clock time for the full hyperparameter grid search (27 trials, 3-fold CV).}
   \label{tab:timing}
-  \begin{tabular}{cc}
+  \begin{tabular}{cccc}
     \toprule
-    Number of VMs & Wall-clock Time (min) \\
+    Number of VMs & CPUs & Wall-clock Time & Speedup vs.\ 1 VM \\
     \midrule
-    1 & -- \\
-    2 & -- \\
-    3 & -- \\
+    1 & 1 & 307.83\,s (\textasciitilde{}5\,min 7\,s)  & 1.00$\times$ \\
+    2 & 2 & 168.07\,s (\textasciitilde{}2\,min 47\,s) & 1.83$\times$ \\
+    3 & 3 & 112.84\,s (\textasciitilde{}1\,min 52\,s) & 2.73$\times$ \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-Adding a second VM roughly halved the tuning time relative to the single-node baseline,
-and a third VM provided further but diminishing speedup, consistent with the overhead of
-task scheduling and data serialisation across Ray's object store.
+Adding a second VM cut the tuning time by 45\% (1.83$\times$ speedup), and a
+third VM achieved a 2.73$\times$ speedup -- near-linear scaling for a 3$\times$
+CPU increase. Diminishing returns are visible: the 1$\rightarrow$2 transition
+saved 139.76\,s whereas 2$\rightarrow$3 saved only 55.23\,s. This is expected --
+the slowest individual trial (\textasciitilde{}17\,s) sets a floor on total time
+regardless of the degree of parallelism.
 
 % -----------------------------------------------------------------------------
 \subsection{Task 1.2: Distributed Training of Deep Neural Networks}
 
 \subsubsection{TensorFlow Distributed Training Tutorial}
 
-The \textit{Distributed training with TensorFlow} tutorial was executed in Google Colab
+I executed the \textit{Distributed training with TensorFlow} tutorial in Google Colab
 using the \texttt{MirroredStrategy} (data parallelism across simulated logical devices).
-The screenshot below shows the Colab notebook run confirming successful distributed
+The screenshot below shows my Colab notebook run confirming successful distributed
 training.
 
 \begin{figure}[H]
@@ -320,31 +351,27 @@ training.
 
 \subsubsection{Data Parallelism vs.\ Model Parallelism}
 
-\textbf{Data parallel} training replicates the full model on each device and feeds each
-replica a different mini-batch of data. Gradients are computed locally and then
-synchronised (e.g.\ all-reduce) before the parameter update. TensorFlow's
-\texttt{MirroredStrategy} and PyTorch's \texttt{DistributedDataParallel} both implement
-this pattern. Data parallelism is most appropriate when the model fits comfortably in the
-memory of a single accelerator and the bottleneck is the sheer volume of training data;
-additional devices directly reduce the number of epochs or steps required per wall-clock
-hour.
+\textbf{Data parallelism} copies the full model to every device. Each device gets a
+different batch of data, computes its own gradients, and then all devices share and
+average those gradients before updating the weights. TensorFlow's
+\texttt{MirroredStrategy} and PyTorch's \texttt{DistributedDataParallel} both work this
+way. This approach works well when the model fits on a single device and the main
+bottleneck is the amount of training data. Adding more devices lets training finish
+faster.
 
-\textbf{Model parallel} training splits the model itself across devices -- different layers
-or tensor shards reside on different accelerators. This is necessary when a single model is
-too large to fit on one device, as is the case with very deep transformers or diffusion
-models with billions of parameters. Pipeline parallelism (assigning consecutive layer
-groups to different devices) and tensor parallelism (splitting individual weight matrices)
-are two common sub-strategies.
+\textbf{Model parallelism} splits the model itself across devices. Different layers or
+parts of the model live on different devices. This is needed when the model is too large
+to fit on one device, such as very large language models with billions of parameters.
+Two common ways to do this are pipeline parallelism (each device handles a group of
+layers in sequence) and tensor parallelism (weight matrices are split across devices).
 
-\textbf{When to distribute individual network training rather than the tuning sweep.}
-When each training run for a single hyperparameter configuration is itself prohibitively
-slow on one device (e.g.\ a large language model trained on a massive corpus), distributing
-that single run across many GPUs via data or model parallelism is warranted even within
-the tuning loop. Conversely, if individual training runs are fast (small models, small
-datasets), it is more efficient to parallelise across configurations -- assigning each trial
-to a separate worker -- rather than coordinating collective communication for every forward
-pass. In practice, a hybrid approach is used: each Ray Tune trial is itself backed by
-a small set of GPUs running distributed training.
+\textbf{When to distribute a single training run vs.\ the whole tuning sweep.}
+If training one model configuration already takes too long on a single device, it makes
+sense to spread that one run across multiple devices using data or model parallelism.
+On the other hand, if each training run is fast, it is better to run many configurations
+in parallel -- one per worker -- instead of adding communication overhead to every forward
+pass. In my experiments with Ray Tune and the random forest, individual runs were fast
+enough that I parallelised across configurations rather than within a single run.
 
 % =============================================================================
 \section{Task 2: Federated Learning (Extra Credit)}
@@ -467,12 +494,23 @@ cost of potential client drift.
 
 \section{Code Files}
 
-\subsection{scikit-learn-baseline.py}
+\subsection{random\_forest\_baseline.py}
 
-This script implements the baseline scikit-learn model for distributed machine learning
-using Ray Tune for hyperparameter tuning on the cover-type dataset.
+This script implements the baseline scikit-learn model, evaluating the
+\texttt{RandomForestClassifier} with default hyperparameters using 3-fold
+cross-validation on the cover-type dataset.
 
-\lstinputlisting[style=python, caption=scikit-learn-baseline.py]{../scikit-learn-baseline.py}
+\lstinputlisting[style=python, caption=random\_forest\_baseline.py]{../random_forest_baseline.py}
+
+\subsection{tune\_random\_forest.py}
+
+This script implements distributed hyperparameter tuning with Ray Tune.
+It loads the dataset, places it in Ray's object store, and launches a
+$3 \times 3 \times 3$ grid search over \texttt{max\_depth},
+\texttt{n\_estimators}, and \texttt{ccp\_alpha}, distributing trials
+across all nodes in the Ray cluster.
+
+\lstinputlisting[style=python, caption=tune\_random\_forest.py]{../tune_random_forest.py}
 
 \subsection{OpenStack Client Configuration}
 
@@ -495,18 +533,6 @@ OpenStack Nova client script for provisioning Ray cluster instances:
 Ansible playbook to install Ray and dependencies on cluster nodes:
 
 \lstinputlisting[style=yaml, caption=install\_ray.yml]{../openstack-client/ansible/install_ray.yml}
-
-\subsubsection{start\_ray\_1vm.yml}
-
-Ansible playbook to start Ray head node (single-VM configuration):
-
-\lstinputlisting[style=yaml, caption=start\_ray\_1vm.yml]{../openstack-client/ansible/start_ray_1vm.yml}
-
-\subsubsection{inventory.ini}
-
-Ansible inventory configuration for Ray cluster nodes:
-
-\lstinputlisting[style=shell, caption=inventory.ini]{../openstack-client/ansible/inventory.ini}
 
 \end{appendices}
 
