@@ -172,9 +172,9 @@ ray start --address='<head-internal-ip>:6379' \
   --node-ip-address=<worker-internal-ip>
 \end{lstlisting}
 
-The tuning script was then executed on the head node, which distributed trials
+I ran the tuning script on the head node, which distributed trials
 across all connected workers via Ray's distributed scheduler and object store.
-A floating IP was attached only to the head node for SSH access; inter-node
+I also attached a floating IP only to the head node for SSH access. Inter-node
 communication used the private network addresses.
 
 \subsection{Task 1.1: Hyperparameter Tuning}
@@ -209,7 +209,7 @@ The default parameters for the \texttt{RandomForestClassifier} are:
 'verbose': 0, 'warm_start': False}
 \end{lstlisting}
 
-I evaluated the model using 3-fold cross-validation on the full dataset, obtaining a mean
+I evaluated the model using 3-fold cross-validation on the 20,000-sample subset, obtaining a mean
 accuracy of \textbf{0.7025} in a runtime of approximately 7.60 seconds.
 The screenshot below shows the training run and the resulting accuracy score for the default configuration.
 
@@ -267,7 +267,7 @@ respectively.
 Table~\ref{tab:cv-scores} compares the default configuration against the best
 configuration found by the grid search. The tuned model achieved a mean 3-fold
 cross-validation accuracy of \textbf{0.7038} -- an improvement of approximately
-9.6 percentage points over the default.
+0.13 percentage points over the default.
 
 \begin{table}[H]
   \centering
@@ -331,6 +331,10 @@ saved 139.76\,s whereas 2$\rightarrow$3 saved only 55.23\,s. This is expected --
 the slowest individual trial (\textasciitilde{}17\,s) sets a floor on total time
 regardless of the degree of parallelism.
 
+The complete implementation of the distributed hyperparameter tuning pipeline,
+including Ray cluster integration and grid search configuration, is shown in
+Appendix~\ref{app:tune_random_forest}.
+
 % -----------------------------------------------------------------------------
 \subsection{Task 1.2: Distributed Training of Deep Neural Networks}
 
@@ -365,7 +369,7 @@ to fit on one device, such as very large language models with billions of parame
 Two common ways to do this are pipeline parallelism (each device handles a group of
 layers in sequence) and tensor parallelism (weight matrices are split across devices).
 
-\textbf{When to distribute a single training run vs.\ the whole tuning sweep.}
+\textbf{When to distribute a single training run vs.\ the whole tuning sweep:}
 If training one model configuration already takes too long on a single device, it makes
 sense to spread that one run across multiple devices using data or model parallelism.
 On the other hand, if each training run is fast, it is better to run many configurations
@@ -374,16 +378,21 @@ pass. In my experiments with Ray Tune and the random forest, individual runs wer
 enough that I parallelised across configurations rather than within a single run.
 
 % =============================================================================
-\section{Task 2: Federated Learning (Extra Credit)}
+\section{Task 2: Federated Learning }
 % =============================================================================
 
 \subsection{Simulation Setup}
 
-Two \textit{Datasite} nodes were launched locally using \textbf{PySyft $\geq$ 0.8}
+I launched two \textit{Datasite} nodes locally using \textbf{PySyft $\geq$ 0.8}
 (\texttt{dev\_mode=True} to bypass manual approval) representing \emph{Client~A} and
-\emph{Client~B}. The MNIST training set (60\,000 images) was partitioned into two
-non-overlapping halves: samples 0--29\,999 sent to Client~A and samples 30\,000--59\,999
-sent to Client~B.
+\emph{Client~B}. I partitioned the MNIST training set (60\,000 images) into two
+non-overlapping halves: samples 0--29\,999 for Client~A and samples 30\,000--59\,999
+for Client~B.
+
+I uploaded each partition to its respective datasite using the dataset upload API.
+PySyft~0.8 persists large tensors in blob storage on the server before registering
+them. I received back only an asset pointer -- a UUID reference to the data stored
+on the server -- never the raw tensor bytes.
 
 \begin{figure}[H]
   \centering
@@ -395,99 +404,148 @@ sent to Client~B.
 
 \subsection{Federated Training}
 
-A simple convolutional network was defined; its \texttt{state\_dict()} (serialised as a
-plain \texttt{dict}) was submitted to each worker via a \texttt{@syft\_function}-decorated
-remote function carrying an \texttt{ExactMatch} input policy and an \texttt{allow\_outputs}
-output policy. Each worker performed one epoch of local SGD and returned the updated
-\texttt{state\_dict}. The coordinator performed \textbf{FedAvg} -- averaging the two
-returned state dictionaries by parameter tensor -- and loaded the aggregated weights back
-into the global model. This procedure was repeated for five rounds.
+I defined a \texttt{SimpleCNN} convolutional network (one convolutional block with
+16 filters, one max-pool layer, and two fully-connected layers culminating in 10-class
+logits). I registered each worker's training function using the \texttt{@syft\_function} decorator.
+The \texttt{ExactMatch} input policy locks the function to the pre-approved \texttt{Asset}
+pointers only. The \texttt{SingleExecutionExactOutput} output policy restricts the return
+value to the declared \texttt{state\_dict} only. Both clients trained for \textbf{3 epochs}
+with SGD (lr$\,=\,0.01$, momentum$\,=\,0.9$) and batch size 256. Each function returned a
+plain \texttt{dict} of detached tensors, as required by PySyft's serialiser.
+
+I then collected the two returned state dicts and performed a single round of
+\textbf{FedAvg} -- parameter-wise weighted average with equal weights (0.5 / 0.5, since
+both workers held 30\,000 samples):
+\[
+  \theta_{\text{global}} = \tfrac{1}{2}\,\theta_A + \tfrac{1}{2}\,\theta_B
+\]
+The aggregated weights were loaded into a fresh \texttt{SimpleCNN} instance to form the
+global model. Total wall-clock time for both remote training calls was \textbf{13.5\,s}.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.95\textwidth]{screenshot-federated-training}
-  \caption{Terminal output showing federated training rounds, per-worker local loss, and
-           FedAvg aggregation.}
+  \caption{Terminal output showing per-worker local loss over 3 epochs and the
+           FedAvg aggregation step.}
   \label{fig:fl-training}
 \end{figure}
 
 \subsection{Analysis}
 
-\subsubsection{How PySyft's \texttt{PointerTensor} / \texttt{ActionObject} Prevents
-               Raw Data Access}
+\subsubsection{How PySyft's \texttt{ActionObject} Prevents Raw Data Access}
 
-In PySyft~0.7 the \texttt{PointerTensor} abstraction stores only a reference (owner node
-id, object id) rather than the data itself. All operations on a \texttt{PointerTensor}
-(arithmetic, slicing, model forward passes) are serialised as remote procedure calls and
-executed on the owning worker; only the result pointer -- not the underlying tensor values
--- is returned to the data-scientist process. The data scientist therefore never holds the
-raw bytes in local memory; they interact with a \emph{proxy object} that enforces
-data-locality.
+In PySyft~0.8+, I never held the raw tensor data directly. When I called
+\texttt{upload\_dataset()}, the raw tensors were stored in blob storage on the
+Datasite server via \texttt{TwinObject.\_save\_to\_blob\_storage()}. I received
+back only an \texttt{Asset} -- a UUID pointer (\texttt{action\_id}) -- with no
+access to the underlying pixel values.
 
-In PySyft~0.8+ the equivalent mechanism is the \texttt{ActionObject}. Code that accesses
-private data must be submitted as a \texttt{@syft\_function} decorated function with an
-explicit \texttt{input\_policy} (governing what inputs may be passed) and an
-\texttt{output\_policy} (governing what outputs may be returned). The Datasite
-administrator must approve each code request before execution; in simulation mode
-(\texttt{dev\_mode=True}) this approval is granted automatically. The net effect is that
-the data owner retains full governance: the data scientist submits an auditable function,
-and only approved, policy-conforming results leave the node.
+Any code that accesses private data must be submitted as a \texttt{@syft\_function}
+decorated function. Two policies enforce the privacy boundary:
+\begin{itemize}[nosep]
+  \item \textbf{\texttt{input\_policy = ExactMatch(...)}}: the function can only be
+        called with the pre-approved \texttt{Asset} pointers; arbitrary tensor
+        injection is blocked.
+  \item \textbf{\texttt{output\_policy = SingleExecutionExactOutput()}}: only the
+        declared return value (\texttt{state\_dict}) is allowed out of the node;
+        no intermediate tensors or raw data can be returned.
+\end{itemize}
+
+In production, the Datasite administrator must manually approve each code request
+via the PySyft web UI before execution. I used \texttt{dev\_mode=True} to
+auto-approve requests for simulation purposes, but the privacy enforcement is
+identical in both modes. The net effect is that the data owner retains full
+governance: I submitted an auditable function, and only approved, policy-conforming
+results left each node.
 
 \subsubsection{Federated Model Accuracy vs.\ Single-Worker Baseline}
 
-The federated model (trained on the full dataset split across both workers with FedAvg
-aggregation) was compared against a baseline model trained exclusively on Client~A's local
-partition. The screenshot below shows the test accuracy on the held-out MNIST test set for
-both settings.
+All three models were evaluated on the held-out MNIST test set (10\,000 samples).
+Table~\ref{tab:fl-accuracy} summarises the results.
+
+\begin{table}[H]
+  \centering
+  \caption{Test accuracy on MNIST for federated and local-only models.}
+  \label{tab:fl-accuracy}
+  \begin{tabular}{lcc}
+    \toprule
+    Model & Training data & Test accuracy \\
+    \midrule
+    Federated (FedAvg, single round) & 60\,000 (split) & 80.52\% \\
+    Local-only (Client~A)            & 30\,000         & \textbf{96.15}\% \\
+    Local-only (Client~B)            & 30\,000         & 96.06\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.85\textwidth]{screenshot-accuracy-comparison}
-  \caption{Test accuracy on MNIST: federated model (both workers, FedAvg) vs.\
-           single-worker baseline (Client~A only).}
+  \caption{MNIST test accuracy: Federated model (FedAvg) achieved 80.52\%, compared to local-only baselines (Client~A: 96.15\%, Client~B: 96.06\%).}
   \label{fig:accuracy}
 \end{figure}
 
-As expected, the federated model benefited from the additional data diversity provided
-by Client~B, achieving higher accuracy than the model restricted to half the training data.
-The gap quantifies the cost of data silo-ing: organisations that refuse to share their
-data directly forgo the performance gains that a larger, more representative dataset would
-provide.
+\textbf{The federated model underperformed both local baselines by approximately
+15.6 percentage points} (80.52\% vs.\ 96.15\% for Client~A and 96.06\% for Client~B).
+This result is counterintuitive at first but has a well-known explanation: FedAvg
+averages model weights in parameter space. When two networks are trained
+\emph{independently from different random initialisations}, their weight spaces do not
+align -- different neurons learn the same feature in different positions, and averaging
+their weights yields a model that represents no feature well. This phenomenon is known
+as \emph{weight-space incompatibility} or \emph{permutation misalignment}.
+
+In canonical FL, the global model is \emph{broadcast} to all workers at the start of
+each round. All workers then start from the same weights, and local training moves each
+model only a small number of steps away. Averaging these nearby points in weight space
+produces a coherent result. My simulation skips this broadcast step: each worker trains
+from scratch with a different random initialisation. Their weight spaces therefore
+divide completely, and FedAvg over two such independent models is expected to perform
+poorly.
+
+Despite this, my experiment correctly demonstrates the privacy guarantee: neither
+worker ever shared raw pixels with the other or with the coordinator.
 
 \subsection{Written Reflection}
 
 \subsubsection{Federated Learning vs.\ Distributed ML: Statistical and System
                Heterogeneity}
 
-Standard distributed ML (e.g.\ a Ray cluster or a parameter server) operates under the
-assumption that data are either replicated or uniformly partitioned across homogeneous
-workers. Communication is treated as a controllable engineering variable, and all nodes
-are trusted by a single operator. Federated Learning relaxes both assumptions in critical
-ways.
+Regular distributed ML (for example, data-parallel SGD with a parameter server or a Ray
+cluster) assumes two things: the data is spread evenly across all workers, and all
+workers have similar hardware and network speed. Federated Learning breaks both of these
+assumptions.
 
-\textbf{Statistical heterogeneity} (\emph{non-IID data}): In FL, each client's local data
-distribution reflects the behaviour of its users or sensors, which may diverge sharply from
-the global distribution. A hospital's patient cohort, for example, may skew towards
-particular demographics. This breaks the convergence guarantees of standard synchronous
-SGD; algorithms such as FedAvg, FedProx, and SCAFFOLD add proximal terms or variance
-reduction to compensate.
+\textbf{Statistical heterogeneity} (\emph{non-IID data}): Each FL participant has
+different data. For example, a hospital in one city sees different patients than one in
+another city. Because the data is not evenly distributed, each worker's local model
+updates point in different directions. When these updates are averaged, the global model
+can be biased toward the workers with more data. This problem does not happen in
+data-centre distributed ML, where data is shuffled evenly before training starts.
+Algorithms such as FedProx and SCAFFOLD are designed to reduce this bias.
 
-\textbf{System heterogeneity} (\emph{stragglers and availability}): FL clients are
-consumer devices or institution servers with heterogeneous compute, memory, and
-network conditions. They may drop out mid-round (partial participation), making fully
-synchronous aggregation impractical. Asynchronous FL protocols and client-selection
-strategies mitigate but do not eliminate this challenge.
+\textbf{System heterogeneity} (\emph{stragglers and availability}): FL clients have
+very different hardware. One client might be a slow smartphone and another might be a
+powerful server. In synchronous training, the system must wait for the slowest worker
+(\emph{straggler problem}). In asynchronous training, some workers may send outdated
+updates. Data-centre distributed ML avoids this because all machines are controlled and
+similar.
 
-\textbf{Relation to the Parameter Server strategy}: The Parameter Server (PS) pattern -- a
-centralised store for model parameters that workers push gradients to and pull updates
-from -- is the architectural ancestor of the FL aggregation server. In both cases a
-coordinator holds the global model and workers compute local gradients. The key
-differences are (i) the PS assumes trusted workers on a private network with predictable
-latency, while the FL server treats clients as potentially unreliable and untrusted;
-(ii) FL must contend with non-IID data and privacy constraints that are irrelevant in
-traditional PS deployments; and (iii) FL aggregation (FedAvg) operates on full local
-model updates rather than mini-batch gradients, reducing communication frequency at the
-cost of potential client drift.
+\textbf{Relation to the Parameter Server strategy}: In the Parameter Server (PS)
+approach, a central server holds the global model. Workers download the model, compute
+updates on their local data, and send the updates back. FL looks similar to this -- the
+aggregation server acts like a PS -- but there are three key differences:
+\begin{enumerate}[nosep]
+  \item \textbf{Privacy}: In PS, raw gradients go to the server. These gradients can be
+        used to reconstruct private training data (gradient inversion attacks). In FL,
+        only model weights (state dicts) are shared -- the server never sees the raw
+        data. PySyft enforces this with \texttt{ActionObject} and \texttt{output\_policy}.
+  \item \textbf{Data distribution}: PS assumes data is spread evenly across trusted
+        machines. FL must handle uneven data across independent organisations.
+  \item \textbf{Trust model}: PS workers are trusted machines inside one organisation.
+        FL participants are separate entities with their own data rules. This is why FL
+        systems need code approval workflows, differential privacy, and secure
+        aggregation in real deployments.
+\end{enumerate}
 
 % =============================================================================
 \begin{appendices}
@@ -503,6 +561,7 @@ cross-validation on the cover-type dataset.
 \lstinputlisting[style=python, caption=random\_forest\_baseline.py]{../random_forest_baseline.py}
 
 \subsection{tune\_random\_forest.py}
+\label{app:tune_random_forest}
 
 This script implements distributed hyperparameter tuning with Ray Tune.
 It loads the dataset, places it in Ray's object store, and launches a
@@ -525,6 +584,16 @@ Configuration constants for OpenStack instance provisioning:
 OpenStack Nova client script for provisioning Ray cluster instances:
 
 \lstinputlisting[style=python, caption=start\_instance.py]{../openstack-client/start_instance.py}
+
+\subsection{federated\_learning\_pysyft.py}
+
+This script is the Python conversion of the \texttt{federated\_learning\_pysyft.ipynb}
+Jupyter notebook. It contains the complete federated learning simulation: launching two
+PySyft Datasites, partitioning and uploading MNIST data, defining and submitting
+\texttt{@syft\_function} training jobs, performing FedAvg aggregation, and evaluating
+the federated and local-only models.
+
+\lstinputlisting[style=python, caption=federated\_learning\_pysyft.py]{../federated_learning_pysyft.py}
 
 \subsection{Ansible Playbooks}
 
